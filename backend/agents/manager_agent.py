@@ -7,10 +7,14 @@ AGENTS = {
     "export":   "agents.exporter_agent",
 }
 
-def detect_intent(query):
+from typing import Optional
+
+def detect_intent(query: str) -> Optional[str]:
     q = query.lower()
-    if "export" in q:   return "export"
-    if "estimate" in q: return "estimate"
+    if "export" in q:
+        return "export"
+    if "estimate" in q:
+        return "estimate"
     return None
 
 def handle(state: dict) -> dict:

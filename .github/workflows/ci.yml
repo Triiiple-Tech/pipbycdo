@@ -17,6 +17,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install ruff mypy
+      
+         - name: Debug PATH & check installs
+           run: |
+            which ruff || echo "ruff not found"
+            pip show ruff
+            which mypy || echo "mypy not found"
+            pip show mypy
+            echo $PATH
 
       - name: Lint with Ruff
         run: ruff backend/

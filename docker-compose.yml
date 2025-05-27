@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  api:
+    build:
+      context: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: supabase_admin
+      POSTGRES_PASSWORD: supabase_pass
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+
+  supabase:
+    image: supabase/postgres:latest
+    depends_on:
+      - postgres
+    environment:
+      ANON_KEY: exampleanonkey
+      SERVICE_ROLE_KEY: exampleadminkey
+    ports:
+      - "5433:5432"
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+    - chroma_data:/data/db
+
+volumes:
+  pgdata:
+  chroma_data:

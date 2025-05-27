@@ -1,0 +1,41 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Env files
+.env
+
+# macOS
+.DS_Store
+
+# Logs and temp
+*.log
+*.tmp
+*.swp
+
+# Docker
+docker-compose.override.yml
+docker-compose.*.yml
+
+# IDEs
+.vscode/
+.idea/
+
+# Supabase local CLI
+.supabase/
+
+# Node (if you ever add frontend here)
+node_modules/
+
+# Scribe / docs
+docs/*.sqlite

@@ -1,0 +1,22 @@
+# Ignore virtualenv
+.venv
+venv
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+
+# Git
+.git
+.gitignore
+
+# Local env
+.env
+
+# Tests (if you don’t need them inside the image)
+tests/
+
+# Docker files
+Dockerfile
+docker-compose.yml

@@ -1,4 +1,4 @@
-import pytest
+# pipbycdo/backend/tests/test_exporter_agent.py
 from agents.exporter_agent import handle as exporter_handle
 
 def test_exporter_happy_path():
@@ -15,7 +15,7 @@ def test_exporter_happy_path():
     assert "export" in out
     assert "2 items" in out["export"]
     assert out.get("error") is None
-    assert any("export done" in log["decision"] or "exported file" in log["decision"] for log in out["agent_trace"])
+    assert any("export done" in log["decision"] for log in out["agent_trace"])
 
 def test_exporter_error_path():
     # missing estimate list should error

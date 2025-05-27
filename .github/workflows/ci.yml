@@ -39,7 +39,7 @@ jobs:
           echo $PATH
 
       - name: Lint with Ruff
-        run: ruff backend/
+        run: ruff check backend/
 
       - name: Type check with MyPy
         run: mypy backend/

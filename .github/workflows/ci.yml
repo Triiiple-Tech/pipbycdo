@@ -67,6 +67,9 @@ jobs:
           echo $PATH
 
       - name: Lint with Ruff
+        run: ruff check backend/ --fix
+
+      - name: Verify code formatting
         run: ruff check backend/
 
       - name: Type-check with MyPy

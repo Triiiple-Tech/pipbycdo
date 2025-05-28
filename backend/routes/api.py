@@ -1,6 +1,6 @@
 # pipbycdo/backend/routes/api.py
-from fastapi import APIRouter, Request, HTTPException, Header
-from backend.app.schemas import AppState, AnalyzeRequest, AnalyzeResponse, AgentTraceEntry, MeetingLogEntry
+from fastapi import APIRouter, HTTPException, Header
+from backend.app.schemas import AppState, AnalyzeRequest, AnalyzeResponse
 from backend.agents.manager_agent import handle as manager_handle
 from datetime import datetime, timezone
 from typing import Optional # Added Optional

@@ -1,9 +1,8 @@
 # pipbycdo/backend/tests/test_api.py
-import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.app.schemas import AppState, EstimateItem # Import Pydantic models
-from typing import Optional, List # For type hinting
+from backend.app.schemas import AppState # Import Pydantic models
+from typing import Optional # For type hinting
 import backend.services.gpt_handler # For monkeypatching
 
 client = TestClient(app)

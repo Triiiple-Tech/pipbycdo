@@ -1,5 +1,4 @@
 # pipbycdo/backend/tests/test_manager_agent.py
-import pytest
 from backend.agents import manager_agent
 from backend.app.schemas import AppState, EstimateItem # Import Pydantic models
 import backend.agents.manager_agent as manager_agent_module # For patching

@@ -1,6 +1,5 @@
-import pytest
 from backend.agents.estimator_agent import handle as estimator_handle
-from backend.app.schemas import AppState, EstimateItem # Import Pydantic models
+from backend.app.schemas import AppState # Import Pydantic models
 import backend.services.gpt_handler # For monkeypatching
 
 def test_estimator_happy_path(monkeypatch):

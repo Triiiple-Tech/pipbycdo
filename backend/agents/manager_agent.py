@@ -1,13 +1,13 @@
 # pipbycdo/backend/agents/manager_agent.py
 from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry # Use Pydantic models
-from backend.services.utils.custom_logger import log_agent_turn # Changed from app_logging
 from backend.agents.estimator_agent import handle as estimator_handle
 from backend.agents.exporter_agent import handle as exporter_handle
 from datetime import datetime, timezone
 from typing import Optional # Added Optional
 
 def detect_intent(query: Optional[str]) -> Optional[str]:
-    if not query: return None
+    if not query:
+        return None
     q = query.lower()
     if "export" in q:
         return "export"

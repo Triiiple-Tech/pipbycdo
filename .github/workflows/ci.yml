@@ -42,9 +42,7 @@ jobs:
         run: ruff check backend/
 
       - name: Type-check with MyPy
-        run: mypy --explicit-package-bases -p backend
-        env:
-          MYPYPATH: .
+        run: mypy backend # Target the backend package directly
 
       - name: Run tests
         run: pytest backend/tests --maxfail=1 --disable-warnings -q

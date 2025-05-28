@@ -28,8 +28,22 @@ jobs:
           pip install -r backend/requirements.txt
           pip install ruff mypy
 
-      - name: Clean __pycache__ directories
-        run: find . -path "*/__pycache__" -type d -exec rm -r {} +
+      - name: Aggressively clean caches
+        run: |
+          echo "Cleaning __pycache__ directories..."
+          find . -path "*/__pycache__" -type d -exec rm -rf {} +
+          echo "Cleaning .mypy_cache directories..."
+          find . -path ".mypy_cache" -type d -exec rm -rf {} +
+          echo "Attempting to remove specific stale .pyc file if it exists..."
+          rm -f backend/services/utils/__pycache__/service_logging.cpython-313.pyc
+          echo "Cache cleaning done."
+
+      - name: List directory contents for debugging
+        run: |
+          echo "--- Contents of backend/services/utils/ ---"
+          ls -la backend/services/utils/
+          echo "--- Contents of backend/services/utils/__pycache__/ (if it exists) ---"
+          ls -la backend/services/utils/__pycache__/ || echo "__pycache__ directory does not exist or is empty"
 
       - name: Debug install & PATH
         run: |
@@ -45,7 +59,7 @@ jobs:
         run: ruff check backend/
 
       - name: Type-check with MyPy
-        run: mypy backend # Target the backend package directly
+        run: mypy --cache-dir=/dev/null backend
         env:
           MYPYPATH: "." # Explicitly set MYPYPATH to the project root
 

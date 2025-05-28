@@ -42,7 +42,8 @@ jobs:
         run: ruff check backend/
 
       - name: Type check with MyPy
-        run: mypy backend/
+        run: mypy --explicit-package-bases backend/
+
 
       - name: Run tests
         run: pytest backend/tests --maxfail=1 --disable-warnings -q

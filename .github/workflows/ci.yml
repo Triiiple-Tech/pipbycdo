@@ -17,6 +17,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Debug File State After Checkout
+        run: |
+          echo "--- Current Commit ---"
+          git log -1
+          echo "--- Git Status ---"
+          git status
+          echo "--- Full Contents of backend/services/utils/ ---"
+          ls -la backend/services/utils/
+          echo "--- Searching for ALL logging.py files in workspace ---"
+          find . -name "logging.py" -ls || echo "No files named logging.py found in workspace"
+          echo "--- Searching for ALL custom_logger.py files in workspace ---"
+          find . -name "custom_logger.py" -ls || echo "No files named custom_logger.py found in workspace"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:

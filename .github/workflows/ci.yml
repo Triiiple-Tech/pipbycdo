@@ -41,10 +41,10 @@ jobs:
       - name: Lint with Ruff
         run: ruff check backend/
 
-      - name: Type check with MyPy
+      - name: Type-check with MyPy
+        run: mypy --explicit-package-bases --python-path backend backend/
         env:
           MYPYPATH: backend
-        run: mypy --explicit-package-bases backend/
 
 
       - name: Run tests

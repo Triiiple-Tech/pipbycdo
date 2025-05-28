@@ -1,26 +1,25 @@
-# pipbycdo/backend/tests/test_exporter_agent.py
-from agents.exporter_agent import handle as exporter_handle
+import pytest
+from backend.agents.exporter_agent import handle as exporter_handle
+from backend.app.schemas import AppState, EstimateItem # Import Pydantic models
 
 def test_exporter_happy_path():
-    state = {
-        "estimate": [
-            {"item":"a","qty":1,"unit":"u","unit_price":1,"total":1},
-            {"item":"b","qty":2,"unit":"u","unit_price":2,"total":4}
-        ],
-        "agent_trace": [],
-        "meeting_log": []
-    }
-    out = exporter_handle(state)
+    initial_estimate = [EstimateItem(item="a",qty=1,unit="u",unit_price=1,total=1),
+                        EstimateItem(item="b",qty=2,unit="u",unit_price=2,total=4)]
+    state_dict = AppState(estimate=initial_estimate).model_dump()
+    
+    out_dict = exporter_handle(state_dict)
+    out_state = AppState(**out_dict)
 
-    assert "export" in out
-    assert "2 items" in out["export"]
-    assert out.get("error") is None
-    assert any("export done" in log["decision"] for log in out["agent_trace"])
+    assert out_state.export == "Exported estimate with 2 items."
+    assert out_state.error is None
+    assert any(log.agent == "exporter" and "export done" in log.decision for log in out_state.agent_trace)
 
 def test_exporter_error_path():
-    # missing estimate list should error
-    state = {"estimate": None, "agent_trace": [], "meeting_log": []}
-    out = exporter_handle(state)
+    # Test with empty estimate list (Pydantic default) to ensure it handles it as an error or specific case
+    state_dict = AppState(estimate=[]).model_dump() # Intentionally empty
+    out_dict = exporter_handle(state_dict)
+    out_state = AppState(**out_dict)
 
-    assert out.get("error") is not None
-    assert any(log.get("level") == "error" for log in out["agent_trace"])
+    assert out_state.error is not None
+    assert "Missing estimate data" in out_state.error
+    assert any(log.agent == "exporter" and log.level == "error" for log in out_state.agent_trace)

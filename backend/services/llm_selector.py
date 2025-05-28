@@ -1,10 +1,8 @@
-# pipbycdo/backend/services/llm_selector.py
 import os
 
 AGENT_MODELS = {
-    "manager":   os.getenv("MANAGER_MODEL", "o4-mini"),
-    "estimator": os.getenv("ESTIMATOR_MODEL", "gpt-4o"),
-    "exporter":  os.getenv("EXPORTER_MODEL", "gpt-4o"),
+    "estimator": "gpt-4",
+    "manager": "gpt-3.5-turbo"
 }
 
 def select_llm(agent_name, state):

@@ -1,14 +1,13 @@
 # pipbycdo/backend/agents/manager_agent.py
-from services.utils.logging import log_agent_turn
-import importlib
-from typing import Optional
+from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry # Use Pydantic models
+from backend.services.utils.custom_logger import log_agent_turn # Changed from app_logging
+from backend.agents.estimator_agent import handle as estimator_handle
+from backend.agents.exporter_agent import handle as exporter_handle
+from datetime import datetime, timezone
+from typing import Optional # Added Optional
 
-AGENTS = {
-    "estimate": "agents.estimator_agent",
-    "export":   "agents.exporter_agent",
-}
-
-def detect_intent(query: str) -> Optional[str]:
+def detect_intent(query: Optional[str]) -> Optional[str]:
+    if not query: return None
     q = query.lower()
     if "export" in q:
         return "export"
@@ -16,20 +15,35 @@ def detect_intent(query: str) -> Optional[str]:
         return "estimate"
     return None
 
-def handle(state: dict) -> dict:
-    intent = detect_intent(state["query"])
-    log_agent_turn(state, agent="manager", decision=f"intent detected: {intent}")
-    if not intent or intent not in AGENTS:
-        log_agent_turn(
-            state,
-            agent="manager",
-            decision="unknown intent",
-            error="No matching intent",
-            level="error",
-        )
-        return state
+def handle(state_dict: dict) -> dict: # Expect and return dict for now
+    state = AppState(**state_dict) # Convert dict to Pydantic model
 
-    module = importlib.import_module(AGENTS[intent])
-    state = module.handle(state)
-    log_agent_turn(state, agent="manager", decision=f"delegated to {intent}")
-    return state
+    intent = detect_intent(state.query)
+    
+    state.agent_trace.append(AgentTraceEntry(
+        agent="manager", 
+        decision=f"detected intent: {intent}"
+    ))
+    state.meeting_log.append(MeetingLogEntry(
+        agent="manager", 
+        message=f"detected intent: {intent}"
+    ))
+
+    if intent == "estimate":
+        # Pass as dict, get dict back, then update Pydantic model
+        updated_state_dict = estimator_handle(state.model_dump())
+        state = AppState(**updated_state_dict)
+        state.agent_trace.append(AgentTraceEntry(agent="manager", decision="delegated to estimate"))
+        state.meeting_log.append(MeetingLogEntry(agent="manager", message="delegated to estimate"))
+    elif intent == "export":
+        updated_state_dict = exporter_handle(state.model_dump())
+        state = AppState(**updated_state_dict)
+        state.agent_trace.append(AgentTraceEntry(agent="manager", decision="delegated to export"))
+        state.meeting_log.append(MeetingLogEntry(agent="manager", message="delegated to export"))
+    else:
+        state.error = "Unknown intent"
+        state.agent_trace.append(AgentTraceEntry(agent="manager", decision="unknown intent", level="error"))
+        state.meeting_log.append(MeetingLogEntry(agent="manager", message="unknown intent"))
+    
+    state.updated_at = datetime.now(timezone.utc)
+    return state.model_dump() # Return as dict

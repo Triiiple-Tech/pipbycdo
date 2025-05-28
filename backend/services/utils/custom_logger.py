@@ -1,8 +1,7 @@
-# pipbycdo/backend/services/utils/logging.py
-from datetime import datetime
+from datetime import datetime, timezone # Add timezone
 
 def log_agent_turn(state, **entry):
-    entry.setdefault("timestamp", datetime.utcnow().isoformat())
+    entry.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
     state.setdefault("agent_trace", []).append(entry)
     state.setdefault("meeting_log", []).append({
         "agent": entry.get("agent"),

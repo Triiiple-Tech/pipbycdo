@@ -1,11 +1,15 @@
+# pipbycdo/backend/app/main.py
 from fastapi import FastAPI
-from routes.api import api_router
+from backend.routes import api as api_router # Corrected import
 
-app = FastAPI(title="PIP AI API")
+app = FastAPI(
+    title="PipByCDO API",
+    version="0.1.0",
+    description="API for processing estimates and exports."
+)
 
-# mount your API router at /api
-app.include_router(api_router, prefix="/api")
+app.include_router(api_router.router, prefix="/api")
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome to PipByCDO API"}

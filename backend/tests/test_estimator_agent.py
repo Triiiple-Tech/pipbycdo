@@ -1,34 +1,35 @@
-# pipbycdo/backend/tests/test_estimator_agent.py
-from agents.estimator_agent import handle as estimator_handle
-from services import gpt_handler
+import pytest
+from backend.agents.estimator_agent import handle as estimator_handle
+from backend.app.schemas import AppState, EstimateItem # Import Pydantic models
+import backend.services.gpt_handler # For monkeypatching
 
 def test_estimator_happy_path(monkeypatch):
-    # stub LLM to return a valid JSON list
     monkeypatch.setattr(
-        gpt_handler,
+        backend.services.gpt_handler,
         "run_llm",
         lambda prompt, model=None, system_prompt=None, **kw: '[{"item":"c","qty":2,"unit":"u","unit_price":3,"total":6}]'
     )
 
-    state = {"query": "Estimate", "content": "some content", "agent_trace": [], "meeting_log": []}
-    out = estimator_handle(state)
+    state_dict = AppState(query="Estimate", content="some content").model_dump()
+    out_dict = estimator_handle(state_dict)
+    out_state = AppState(**out_dict)
 
-    assert isinstance(out.get("estimate"), list)
-    assert out["estimate"][0]["item"] == "c"
-    assert out.get("error") is None
-    assert any("estimate generated" in log["decision"] for log in out["agent_trace"])
+    assert out_state.estimate is not None
+    assert len(out_state.estimate) == 1
+    assert out_state.estimate[0].item == "c"
+    assert out_state.error is None
+    assert any(log.agent == "estimator" and "estimate complete" in log.decision for log in out_state.agent_trace)
 
 def test_estimator_error_path(monkeypatch):
-    # stub LLM to return invalid JSON, triggering error
     monkeypatch.setattr(
-        gpt_handler,
+        backend.services.gpt_handler,
         "run_llm",
-        lambda prompt, model=None, system_prompt=None, **kw: "not a json"
+        lambda prompt, model=None, system_prompt=None, **kw: 'not a json'
     )
 
-    state = {"query": "Estimate", "content": "!!!", "agent_trace": [], "meeting_log": []}
-    out = estimator_handle(state)
+    state_dict = AppState(query="Estimate", content="some content").model_dump()
+    out_dict = estimator_handle(state_dict)
+    out_state = AppState(**out_dict)
 
-    assert out.get("estimate") == []
-    assert out.get("error") is not None
-    assert any("error occurred" in log["decision"] for log in out["agent_trace"])
+    assert out_state.error is not None
+    assert any(log.agent == "estimator" and log.level == "error" for log in out_state.agent_trace)

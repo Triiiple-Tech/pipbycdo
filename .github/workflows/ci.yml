@@ -79,3 +79,5 @@ jobs:
 
       - name: Run tests
         run: pytest backend/tests --maxfail=1 --disable-warnings -q
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -42,6 +42,8 @@ jobs:
         run: ruff check backend/
 
       - name: Type check with MyPy
+        env:
+          MYPYPATH: backend
         run: mypy --explicit-package-bases backend/
 
 

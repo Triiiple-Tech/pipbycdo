@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+import json # Added for parsing JSON strings from form data
 
 class File(BaseModel):
     name: str
-    content: Optional[str] = None # Or bytes, depending on how you handle file content
+    content: Optional[bytes] = None # Changed to bytes for raw file content
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class AgentTraceEntry(BaseModel):
@@ -21,15 +22,25 @@ class MeetingLogEntry(BaseModel):
 
 class EstimateItem(BaseModel):
     item: str
+    description: Optional[str] = None # Added
     qty: float
     unit: str
     unit_price: float
     total: float
+    csi_division: Optional[str] = None # Added
+    notes: Optional[str] = None # Added
 
 class AppState(BaseModel):
     query: Optional[str] = None
     content: Optional[str] = None
     files: List[File] = Field(default_factory=list)
+    
+    # Outputs from various agents
+    processed_files_content: Optional[Dict[str, str]] = Field(default_factory=dict) # For File Reader output
+    trade_mapping: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Trade Mapper output
+    scope_items: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Scope Agent output
+    takeoff_data: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Takeoff Agent output
+    
     metadata: Dict[str, Any] = Field(default_factory=dict)
     user_id: Optional[str] = None
     session_id: Optional[str] = None
@@ -43,23 +54,40 @@ class AppState(BaseModel):
     error: Optional[str] = None
     
     # To hold results from agents
-    export: Optional[str] = None # Result from exporter agent
+    export: Optional[str] = None # Result from exporter agent - general message
+    export_options: Optional[Dict[str, Any]] = Field(default_factory=dict) # For export parameters
+    exported_file_content: Optional[bytes] = None # For the content of the exported file
+    exported_file_name: Optional[str] = None # For the name of the exported file
+    exported_content_type: Optional[str] = None # For the MIME type of the exported file
 
     class Config:
         # formerly orm_mode, allows Pydantic to work with ORM objects if you use them later
         from_attributes = True 
 
-# For API request body, if it's different from AppState or a subset
-class AnalyzeRequest(BaseModel):
+# For API request body - this will now primarily be for non-file data
+# when using multipart/form-data. Files will be handled separately.
+# Complex objects like 'metadata' and 'estimate' will be sent as JSON strings
+# and parsed in the endpoint.
+class AnalyzeRequestData(BaseModel):
     query: Optional[str] = None
-    content: Optional[str] = None
-    files: Optional[List[File]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    content: Optional[str] = None # For main text content, if not in a file
+    # files: Optional[List[File]] = None # This will be handled by UploadFile directly
+    metadata_json: Optional[str] = None # To be parsed into Dict[str, Any]
     user_id: Optional[str] = None
     session_id: Optional[str] = None
-    estimate: Optional[List[EstimateItem]] = None
+    estimate_json: Optional[str] = None # To be parsed into List[EstimateItem]
 
 # For API response body
 class AnalyzeResponse(AppState): # The response can be the full state
     pass
+
+class AnalyzeTaskSubmissionResponse(BaseModel):
+    task_id: str
+    status: str
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    result: Optional[AnalyzeResponse] = None
+    error: Optional[str] = None
 

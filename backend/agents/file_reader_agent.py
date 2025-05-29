@@ -3,6 +3,7 @@ from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry, File
 from datetime import datetime, timezone
 import logging
 import io
+from typing import Any
 try:
     import PyPDF2
 except ImportError:
@@ -12,6 +13,11 @@ try:
     import docx
 except ImportError:
     docx = None
+
+try:
+    from openpyxl import load_workbook
+except ImportError:
+    load_workbook = None
 
 try:
     from PIL import Image
@@ -47,15 +53,82 @@ def log_interaction(state: AppState, decision: str, message: str, level: str = "
         logger.info(f"File Reader Agent: {message} - Decision: {decision}")
     state.updated_at = timestamp
 
+def extract_xlsx_content(file_content_bytes: bytes, file_name: str) -> str:
+    """
+    Extracts text content from XLSX files using openpyxl.
+    Returns formatted text representation of the spreadsheet data.
+    """
+    if not load_workbook:
+        return "[Skipped: openpyxl library not available.]"
+    
+    try:
+        workbook = load_workbook(io.BytesIO(file_content_bytes), read_only=True, data_only=True)
+        extracted_text = ""
+        
+        for sheet_name in workbook.sheetnames:
+            worksheet = workbook[sheet_name]
+            extracted_text += f"\\n=== Sheet: {sheet_name} ===\\n"
+            
+            # Get the used range of cells
+            max_row = worksheet.max_row
+            max_col = worksheet.max_column
+            
+            if max_row == 1 and max_col == 1 and worksheet.cell(1, 1).value is None:
+                extracted_text += "[Empty sheet]\\n"
+                continue
+            
+            # Extract data row by row
+            for row_num in range(1, min(max_row + 1, 1000)):  # Limit to 1000 rows to avoid huge outputs
+                row_data = []
+                has_data = False
+                
+                for col_num in range(1, min(max_col + 1, 50)):  # Limit to 50 columns
+                    cell_value = worksheet.cell(row_num, col_num).value
+                    if cell_value is not None:
+                        has_data = True
+                        # Convert cell value to string, handling different data types
+                        if isinstance(cell_value, (int, float)):
+                            cell_str = str(cell_value)
+                        else:
+                            # Handle datetime objects
+                            from datetime import date, datetime as dt
+                            if isinstance(cell_value, (date, dt)):
+                                try:
+                                    cell_str = cell_value.strftime('%Y-%m-%d %H:%M:%S')
+                                except AttributeError:
+                                    cell_str = str(cell_value)
+                            else:
+                                cell_str = str(cell_value)
+                        row_data.append(cell_str)
+                    else:
+                        row_data.append("")
+                
+                # Only add row if it has data
+                if has_data:
+                    # Remove trailing empty cells
+                    while row_data and row_data[-1] == "":
+                        row_data.pop()
+                    
+                    if row_data:  # If there's still data after cleanup
+                        extracted_text += " | ".join(row_data) + "\\n"
+            
+            extracted_text += "\\n"
+        
+        workbook.close()
+        return extracted_text
+        
+    except Exception as e:
+        return f"[Error extracting XLSX content: {str(e)}]"
+
 def handle(state_dict: dict) -> dict:
     state = AppState(**state_dict)
     log_interaction(state, "Starting file processing", "File Reader Agent invoked.")
 
     if state.processed_files_content is None:
-        state.processed_files_content = {} # Initialize as a dictionary
+        state.processed_files_content = {}
 
     if state.files:
-        for file_data_model in state.files: # Iterate over File objects
+        for file_data_model in state.files:
             file_name = file_data_model.name
             file_content_bytes = file_data_model.content
             content_type = file_data_model.metadata.get('content_type', 'application/octet-stream')
@@ -104,6 +177,19 @@ def handle(state_dict: dict) -> dict:
                     else:
                         parsed_text_content += "[Skipped: python-docx library not available.]"
                         log_interaction(state, f"Skipped DOCX file {file_name}", "python-docx library not available.", level="warning")
+                elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                    # Handle XLSX files
+                    if load_workbook:
+                        try:
+                            xlsx_content = extract_xlsx_content(file_content_bytes, file_name)
+                            parsed_text_content += xlsx_content
+                            log_interaction(state, f"Processed XLSX file {file_name}", f"Successfully extracted data from XLSX {file_name}.")
+                        except Exception as e:
+                            parsed_text_content += f"[Error extracting XLSX content: {str(e)}]"
+                            log_interaction(state, f"XLSX extraction error for {file_name}", f"Error extracting data from XLSX {file_name}: {str(e)}", level="error")
+                    else:
+                        parsed_text_content += "[Skipped: openpyxl library not available.]"
+                        log_interaction(state, f"Skipped XLSX file {file_name}", "openpyxl library not available.", level="warning")
                 elif content_type.startswith('image/'):
                     if Image and pytesseract:
                         try:

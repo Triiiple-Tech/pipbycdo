@@ -190,35 +190,88 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-200 font-sans">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 font-sans overflow-hidden">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/5 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}} />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl animate-float" style={{animationDelay: '4s'}} />
+      </div>
+
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      <div className="flex-grow flex flex-col overflow-hidden">
-        {/* Optional: Header for the main content area, e.g., showing current project or breadcrumbs */}
-        {/* <header className="p-4 bg-white border-b border-gray-300 text-sm text-gray-600">
-          API Status: <span className={healthStatus === 'ok' ? 'text-green-500' : 'text-red-500'}>{healthStatus}</span>
-          {apiError && <span className="ml-4 text-red-500">Error: {apiError}</span>}
-        </header> */}
+      
+      <div className={`
+        flex-grow flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+        ${isSidebarCollapsed ? 'ml-20' : 'ml-80'}
+      `}>
+        {/* Enhanced Header */}
+        <header className="p-6 bg-white/60 backdrop-blur-xl border-b border-white/30 relative z-10">
+          <div className="flex items-center justify-between">
+            <div className="animate-slide-right">
+              <h2 className="text-2xl font-bold text-gradient">
+                {activeTab === 'Chat' ? 'AI Assistant' : activeTab}
+              </h2>
+              <p className="text-sm text-slate-600 font-medium">
+                {activeTab === 'Chat' ? 'Intelligent preconstruction workflow automation' : `Manage your ${activeTab.toLowerCase()}`}
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {/* API Status */}
+              <div className={`
+                flex items-center space-x-2 px-4 py-2 rounded-2xl backdrop-blur-sm
+                ${healthStatus === 'ok' 
+                  ? 'bg-emerald-100/80 text-emerald-800 border border-emerald-200' 
+                  : 'bg-red-100/80 text-red-800 border border-red-200'
+                }
+              `}>
+                <div className={`
+                  w-2 h-2 rounded-full animate-pulse
+                  ${healthStatus === 'ok' ? 'bg-emerald-500' : 'bg-red-500'}
+                `} />
+                <span className="text-xs font-semibold">
+                  {healthStatus === 'ok' ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+              
+              {/* Current task indicator */}
+              {currentTask && (
+                <div className="flex items-center space-x-2 px-4 py-2 rounded-2xl bg-primary-100/80 text-primary-800 border border-primary-200 backdrop-blur-sm">
+                  <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
+                  <span className="text-xs font-semibold">Processing...</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Error display */}
+          {apiError && (
+            <div className="mt-4 p-4 bg-red-100/80 border border-red-200 rounded-2xl backdrop-blur-sm animate-slide-down">
+              <p className="text-sm text-red-800 font-medium">{apiError}</p>
+            </div>
+          )}
+        </header>
 
         {activeTab === 'Chat' ? (
-          <div className="flex-grow flex flex-col overflow-hidden bg-gray-50">
+          <div className="flex-grow flex flex-col overflow-hidden relative">
             <ChatWindow messages={messages} />
             <ChatInput onSendMessage={handleSendMessage} onFileUpload={handleFileUploadFromChat} />
           </div>
         ) : (
-          <main className="flex-grow p-0 overflow-y-auto bg-white">
-            {/* Render tab content with a wrapper that ensures it doesn't interfere with ChatInput's sticky positioning if it were visible */}
-            <div className="h-full">
-             {renderActiveTabContent()}
+          <main className="flex-grow p-8 overflow-y-auto bg-white/30 backdrop-blur-sm relative">
+            <div className="max-w-6xl mx-auto">
+              <div className="glass-panel-heavy rounded-3xl p-8 border-2 border-white/40 shadow-large animate-slide-up">
+                {renderActiveTabContent()}
+              </div>
             </div>
           </main>
         )}
       </div>
-      {/* Optional: Debug/Agent Trace Panel (could be a drawer) */}
     </div>
   );
 }

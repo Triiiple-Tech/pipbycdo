@@ -1,0 +1,114 @@
+🔎 UX/UI Review & Directives — “PIP AI” Core Screens
+
+1. Overall Mood & Visual Style
+What You’ve Got:
+* Layout is functional but sterile: classic left-hand sidebar, flat file list, bland chat, minimal contrast.
+* Lacks brand personality: No clear color pop, no visual hierarchy, no sense of “modular AI agents at work.”
+* Interaction is static—no sense of motion, layering, or “smartness.”
+
+2. Sidebar (Left Rail)
+Current:
+* Simple vertical nav with icons and labels: Chat, Files, Smartsheet, History.
+What It Should Be:
+* Sidebar floats slightly over the content with a subtle drop shadow and gentle glassmorphism (frosted background, slightly blurred).
+* Active tab is bold and glows with the brand accent color (e.g., #9147ff, a deep electric purple, or your chosen brand shade).
+* Hover on icons: light scale-up (1.05x), a pulse, or a soft shadow bloom.
+* Icons should be thick-lined, playful but not childish (think Lucide or Phosphor icons over generic Heroicons for more attitude).
+* Collapse/expand: Chevron at the bottom lets users shrink the sidebar to just icons for full-screen focus.
+
+3. Chat Window
+Current:
+* Sparse. Just system messages, plain timestamps, no visual hierarchy, no chat personality.
+* Input bar is almost invisible.
+What It Should Be:
+* Full-bleed white or ultra-light slate background for chat area.
+* Chat bubbles:
+    * User (right): Deeper slate/gray, text in white, strong radius (rounded XL).
+    * Agents (left): Each agent gets its own accent color (Manager = purple, Estimator = green, RFI = gold, etc.), lighter fill, matching icon in bubble corner.
+* Message grouping: Consecutive messages from the same agent stack closely, last bubble has a “tail.”
+* Timestamps: Faint gray, only shown on hover or at top of each message group—not after every line.
+* Input dock:
+    * Floats above page bottom with a soft shadow.
+    * Input field stretches to fit, hint text is casual: “Type a prompt, mention files, or use / for commands…”
+    * Attach button (“+”): Pops up options for file, Smartsheet, template, etc.
+    * Send button:
+        * Animates on hover (e.g., arrow slides to the right, button background pulses).
+        * When sending, shows a loading spinner morphing into a checkmark.
+Subtle delight: When agent replies come in, they “slide” up from below, with a micro bounce or fade.
+
+4. Files Tab
+Current:
+* Basic table: file name, remove button, status, error message.
+* Looks like a developer’s test page.
+What It Should Be:
+* Card grid or list: Each file is a pill-shaped card or “chip” with:
+    * File icon matching type (.pdf, .docx, .xlsx, image, etc.), e.g., color-coded Phosphor icon.
+    * File name bold, type and size in faint smaller text.
+    * Status badge (Ready = green, Parsing = pulsing blue, Error = red w/ exclamation).
+    * Error message in a dismissible red banner with clear call-to-action (“Try again”, “Remove”, or help link).
+    * Remove button: ghost (bordered, on hover turns solid red with trash icon).
+* Drag & drop zone:
+    * When dragging a file over, the whole tab area blurs and animates with a dashed outline and “Drop files to upload.”
+* File parsing animation:
+    * Animated loader (dots, ring, or skeleton shimmer) while parsing.
+Accessibility:
+* File status and error should have ARIA labels, focus rings on buttons.
+
+5. Smartsheet Tab
+Current:
+* Form input for URL/ID, Load button, and “under development” message.
+* No preview or feedback on actions.
+What It Should Be:
+* Elegant input group: Large pill input, subtle shadow. Paste or type Smartsheet URL/ID, “Load Sheet” button animates when active.
+* On successful load:
+    * Sheet preview appears below input—table rows with soft row highlights, file icons inline, and “Analyze”/“Download”/“Preview” buttons beside each attachment.
+    * If loading: Skeleton rows animate in, then fill.
+    * Error: Red badge at top, dismissible with link to help.
+* “Under development”: Replace with a progress bar or “Coming soon” badge, maybe a playful construction tape illustration or bot with a hard hat.
+
+6. History Tab
+Current:
+* Not shown, but likely another list/table.
+What It Should Be:
+* Timeline list of past sessions: Date, project, brief summary of files/actions taken.
+* Quick preview: Hover or tap to see session summary, export, or reload session.
+* Tagging: Sessions can be “starred” or tagged for later.
+
+7. Responsiveness & Microinteractions
+Current:
+* Feels desktop-bound, no animation.
+What It Should Be:
+* Mobile: Tabs collapse to icons, input bar floats at bottom, files as stacked cards.
+* All buttons animate: Tap = ripple, hover = glow/scale.
+* Transitions: Switching tabs slides content left/right, not just snap.
+* Errors: Shake animation on error, “confetti” on successful export.
+
+8. Color, Typography, Brand
+* Brand accent: A vibrant, unmistakable color (e.g., #9147ff electric purple, or your preferred—should pop against slate/white).
+* Typography:
+    * Headings: Bold, geometric sans-serif (e.g., Inter, Satoshi, DM Sans).
+    * Body: Clean sans (Inter, Helvetica Neue, or similar), never default system font.
+    * Font size: Generous. Headings 2–2.5rem, body 1.1–1.2rem, no tiny text.
+* Contrast: High contrast for primary actions, subtle shadows for layering.
+
+9. Agent “Personality”
+* Agents each get an icon (robot, ruler, doc, etc.), color, and tone for their replies.
+* On multi-agent “debates,” stack agent bubbles with lines connecting them (“Manager ➔ Estimator ➔ Exporter”).
+* Agent names in badge at the top of their chat bubbles.
+
+10. What to Prioritize Next (for Dev/Design)
+1. Chat Window:
+    * Rich chat bubbles, color-coded, agent icons, animated delivery, playful but pro.
+2. Files Tab:
+    * Pills/cards, animated statuses, drag/drop, beautiful errors.
+3. Sidebar Polish:
+    * Accent color, glass effect, icon hover animations.
+4. General Brand Layer:
+    * Finalize accent color, type scale, and base spacing so everything feels “of a piece.”
+
+📸 Visual/Behavioral Inspiration
+* Linear.app for sidebar polish and modal layering
+* Notion for clean content cards and modals
+* Superhuman for delightful, fast microinteractions
+* Slack or Discord for modern chat bubble feel and responsive input dock
+* Figma for floating toolbars and subtle shadowing

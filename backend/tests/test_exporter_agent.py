@@ -11,7 +11,8 @@ def test_exporter_happy_path():
 
     assert out_state.export == "Exported estimate with 2 items."
     assert out_state.error is None
-    assert any(log.agent == "exporter" and "export done" in log.decision for log in out_state.agent_trace)
+    # Check that the export process was logged
+    assert any(log.agent == "exporter" and "Export process complete" in log.decision for log in out_state.agent_trace)
 
 def test_exporter_error_path():
     # Test with empty estimate list (Pydantic default) to ensure it handles it as an error or specific case

@@ -5,6 +5,7 @@ This project is a React frontend for the PIP AI application, built with Vite and
 ## Getting Started
 
 1.  **Install dependencies:**
+
     ```bash
     npm install
     ```
@@ -19,23 +20,23 @@ This project is a React frontend for the PIP AI application, built with Vite and
 
 This frontend interacts with a FastAPI backend. Ensure the backend server is running.
 
--   **Backend start command:** `uvicorn backend.app.main:app --reload`
--   **Base API URL (local):** `http://localhost:8000`
+- **Backend start command:** `uvicorn backend.app.main:app --reload`
+- **Base API URL (local):** `http://localhost:8000`
 
 ## Key Features
 
--   **Health Check:** Verifies API connectivity on load.
--   **File Upload:** Allows users to upload PDF or DOCX files for analysis.
--   **Task Polling:** Periodically checks the status of submitted analysis tasks.
--   **Result Display:** Shows the JSON output from the backend once a task is complete.
--   **Error Handling:** Provides feedback for API or processing errors.
+- **Health Check:** Verifies API connectivity on load.
+- **File Upload:** Allows users to upload PDF or DOCX files for analysis.
+- **Task Polling:** Periodically checks the status of submitted analysis tasks.
+- **Result Display:** Shows the JSON output from the backend once a task is complete.
+- **Error Handling:** Provides feedback for API or processing errors.
 
 ## Available Scripts
 
--   `npm run dev`: Starts the development server.
--   `npm run build`: Builds the application for production.
--   `npm run lint`: Lints the codebase.
--   `npm run preview`: Serves the production build locally for preview.
+- `npm run dev`: Starts the development server.
+- `npm run build`: Builds the application for production.
+- `npm run lint`: Lints the codebase.
+- `npm run preview`: Serves the production build locally for preview.
 
 ## Project Structure (Simplified)
 
@@ -50,6 +51,6 @@ This frontend interacts with a FastAPI backend. Ensure the backend server is run
 
 ## API Endpoints Used
 
--   `GET /health` (or `/api/health`)
--   `POST /api/analyze`
--   `GET /api/tasks/{task_id}/status`
+- `GET /health` (or `/api/health`)
+- `POST /api/analyze`
+- `GET /api/tasks/{task_id}/status`

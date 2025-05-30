@@ -1,6 +1,7 @@
 This project was set up by GitHub Copilot based on the user's specifications.
 
 Key requirements:
+
 - React (Vite) + Tailwind CSS
 - API interaction with a FastAPI backend
 - Endpoints:

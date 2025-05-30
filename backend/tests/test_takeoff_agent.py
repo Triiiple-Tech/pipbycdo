@@ -76,9 +76,10 @@ class TestTakeoffAgent:
         
     def test_log_interaction_function(self):
         """Test log interaction helper function"""
+        from backend.agents.takeoff_agent import takeoff_agent as agent_instance
         state = AppState()
         
-        takeoff_agent.log_interaction(state, "test decision", "test message")
+        agent_instance.log_interaction(state, "test decision", "test message")
         
         assert len(state.agent_trace) == 1
         assert len(state.meeting_log) == 1

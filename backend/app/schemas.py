@@ -4,20 +4,39 @@ from datetime import datetime, timezone
 import json # Added for parsing JSON strings from form data
 
 class File(BaseModel):
-    name: str
-    content: Optional[bytes] = None # Changed to bytes for raw file content
+    filename: str  # Changed from 'name' to 'filename' to match spec
+    type: Optional[str] = None  # pdf, docx, xlsx, txt, image, etc.
+    status: Optional[str] = None  # parsed, raw, error, etc.
+    data: Optional[bytes] = None # Raw file content
+    content: Optional[str] = None # Parsed text content
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+class LLMConfig(BaseModel):
+    model: str
+    api_key: Optional[str] = None
+    params: Dict[str, Any] = Field(default_factory=lambda: {
+        "temperature": 0,
+        "max_tokens": 4000
+    })
+    token_usage: Optional[Dict[str, Any]] = None
+    cost_estimate: Optional[float] = None
+
+class HistoryEntry(BaseModel):
+    role: str  # "user", "assistant", "system"
+    content: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class AgentTraceEntry(BaseModel):
     agent: str
     decision: str
+    model: Optional[str] = None  # Track which model was used
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     level: Optional[str] = None # e.g., 'info', 'error'
     error: Optional[str] = None
 
 class MeetingLogEntry(BaseModel):
-    agent: Optional[str] = None
-    message: Optional[str] = None
+    agent: str
+    message: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class EstimateItem(BaseModel):
@@ -31,34 +50,57 @@ class EstimateItem(BaseModel):
     notes: Optional[str] = None # Added
 
 class AppState(BaseModel):
+    # Core input fields
     query: Optional[str] = None
     content: Optional[str] = None
     files: List[File] = Field(default_factory=list)
     
-    # Outputs from various agents
+    # Metadata about the request/project
+    metadata: Dict[str, Any] = Field(default_factory=lambda: {
+        "project_name": None,
+        "location": None,
+        "trade": None,
+        "sheet_id": None,
+        "source": None,
+        "user_id": None
+    })
+    
+    # LLM configuration
+    llm_config: Optional[LLMConfig] = None
+    
+    # Conversation history
+    history: List[HistoryEntry] = Field(default_factory=list)
+    
+    # Agent coordination and logging
+    meeting_log: List[MeetingLogEntry] = Field(default_factory=list)
+    agent_trace: List[AgentTraceEntry] = Field(default_factory=list)
+    
+    # Agent-specific output fields
     processed_files_content: Optional[Dict[str, str]] = Field(default_factory=dict) # For File Reader output
     trade_mapping: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Trade Mapper output
     scope_items: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Scope Agent output
     takeoff_data: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Takeoff Agent output
+    qa_findings: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For QA Validator output
     
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    # User and session management
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+    
+    # Final outputs
     estimate: List[EstimateItem] = Field(default_factory=list)
+    result: Optional[Any] = None  # General result field
     
-    agent_trace: List[AgentTraceEntry] = Field(default_factory=list)
-    meeting_log: List[MeetingLogEntry] = Field(default_factory=list)
-    
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    error: Optional[str] = None
-    
-    # To hold results from agents
+    # Export functionality
     export: Optional[str] = None # Result from exporter agent - general message
     export_options: Optional[Dict[str, Any]] = Field(default_factory=dict) # For export parameters
     exported_file_content: Optional[bytes] = None # For the content of the exported file
     exported_file_name: Optional[str] = None # For the name of the exported file
     exported_content_type: Optional[str] = None # For the MIME type of the exported file
+    
+    # State management
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    error: Optional[str] = None
 
     class Config:
         # formerly orm_mode, allows Pydantic to work with ORM objects if you use them later

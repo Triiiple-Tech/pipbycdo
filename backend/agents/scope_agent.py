@@ -1,5 +1,5 @@
-from backend.app.schemas import AppState
-from backend.agents.base_agent import BaseAgent
+from app.schemas import AppState
+from agents.base_agent import BaseAgent
 from typing import List, Dict, Any
 
 
@@ -216,6 +216,15 @@ Break this down into specific, measurable scope items that can be quantified for
 
 # Create instance for backward compatibility
 scope_agent = ScopeAgent()
+
+# Add the missing module-level functions that tests expect
+def generate_scope_items(trade_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Module-level function for generating scope items from trade information."""
+    return scope_agent._generate_scope_items_keywords(trade_info)
+
+def log_interaction(state: AppState, decision: str, message: str, level: str = "info") -> None:
+    """Module-level function for logging interactions."""
+    scope_agent.log_interaction(state, decision, message, level)
 
 # Legacy handle function for existing code
 def handle(state_dict: dict) -> dict:

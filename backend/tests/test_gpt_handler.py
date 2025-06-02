@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 import json
 from backend.services import gpt_handler
+from backend.services.gpt_handler import LLMCallError
 
 class TestGPTHandler:
     def test_gpt_handler_module_exists(self):
@@ -89,7 +90,7 @@ class TestGPTHandler:
         mock_openai.assert_called_once_with(api_key="fallback_key")
         
     def test_run_llm_no_api_key_raises_error(self):
-        """Test that missing API key raises ValueError"""
+        """Test that missing API key raises LLMCallError"""
         with patch.dict('os.environ', {}, clear=True):  # No API keys set
-            with pytest.raises(ValueError, match="No API key available"):
+            with pytest.raises(LLMCallError, match="No API key available"):
                 gpt_handler.run_llm("test prompt")

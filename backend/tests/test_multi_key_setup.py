@@ -25,7 +25,7 @@ class TestMultiKeySetup:
     
     @patch.dict(os.environ, {
         "OPENAI_4o_KEY": "fallback_key"
-    })  # Primary key missing
+    }, clear=True)  # Primary key missing, only fallback available
     def test_select_llm_uses_fallback_key(self):
         """Test that fallback API key is used when primary is missing"""
         result = select_llm("manager", {})
@@ -164,8 +164,12 @@ class TestIntegratedMultiKeyFlow:
         from backend.agents.base_agent import BaseAgent
         from backend.app.schemas import AppState, LLMConfig
         
-        # Create test agent
-        agent = BaseAgent("estimator")
+        # Create test agent using a concrete implementation
+        class TestAgent(BaseAgent):
+            def process(self, state):
+                return state
+        
+        agent = TestAgent("estimator")
         
         # Create test state
         state = AppState(

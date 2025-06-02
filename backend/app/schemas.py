@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import json # Added for parsing JSON strings from form data
@@ -102,9 +102,7 @@ class AppState(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
-    class Config:
-        # formerly orm_mode, allows Pydantic to work with ORM objects if you use them later
-        from_attributes = True 
+    model_config = ConfigDict(from_attributes=True) 
 
 # For API request body - this will now primarily be for non-file data
 # when using multipart/form-data. Files will be handled separately.

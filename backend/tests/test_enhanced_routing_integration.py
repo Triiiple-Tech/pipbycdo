@@ -9,6 +9,13 @@ from backend.services.route_planner import route_planner
 from backend.app.schemas import AppState, File, EstimateItem
 
 
+def create_mock_agent():
+    """Create a proper mock agent function for testing."""
+    def mock_agent_fn(state):
+        return state
+    return mock_agent_fn
+
+
 def dummy_agent(state):
     """Simple dummy agent for testing."""
     return state
@@ -38,14 +45,14 @@ class TestEnhancedRoutingIntegration:
         assert intent_result["confidence"] >= 0.9
             
         available_agents = {
-            "file_reader": (dummy_agent, "processed_files_content"),
-            "trade_mapper": (dummy_agent, "trade_mapping"), 
-            "scope": (dummy_agent, "scope_items"),
-            "takeoff": (dummy_agent, "takeoff_data"),
-            "estimator": (dummy_agent, None)
+            "file_reader": (create_mock_agent(), "processed_files_content"),
+            "trade_mapper": (create_mock_agent(), "trade_mapping"), 
+            "scope": (create_mock_agent(), "scope_items"),
+            "takeoff": (create_mock_agent(), "takeoff_data"),
+            "estimator": (create_mock_agent(), None)
         }
         
-        route_result = route_planner.plan_route(state, available_agents)
+        route_result = route_planner.plan_route(state, available_agents)  # type: ignore
         
         assert "sequence" in route_result
         assert len(route_result["sequence"]) > 0
@@ -73,11 +80,11 @@ class TestEnhancedRoutingIntegration:
         
         # Test with minimal agents
         available_agents = {
-            "exporter": (dummy_agent, None),
-            "estimator": (dummy_agent, None)
+            "exporter": (create_mock_agent(), None),
+            "estimator": (create_mock_agent(), None)
         }
         
-        route_result = route_planner.plan_route(state, available_agents)
+        route_result = route_planner.plan_route(state, available_agents)  # type: ignore
         
         # Should prefer exporter for existing data
         assert "exporter" in route_result["sequence"]
@@ -143,15 +150,15 @@ class TestEnhancedRoutingIntegration:
         )
         
         available_agents = {
-            "file_reader": (dummy_agent, "processed_files_content"),
-            "trade_mapper": (dummy_agent, "trade_mapping"),
-            "scope": (dummy_agent, "scope_items"),
-            "takeoff": (dummy_agent, "takeoff_data"),
-            "estimator": (dummy_agent, None),
-            "qa_validator": (dummy_agent, None)  # Optional agent
+            "file_reader": (create_mock_agent(), "processed_files_content"),
+            "trade_mapper": (create_mock_agent(), "trade_mapping"),
+            "scope": (create_mock_agent(), "scope_items"),
+            "takeoff": (create_mock_agent(), "takeoff_data"),
+            "estimator": (create_mock_agent(), None),
+            "qa_validator": (create_mock_agent(), None)  # Optional agent
         }
         
-        route_result = route_planner.plan_route(state, available_agents)
+        route_result = route_planner.plan_route(state, available_agents)  # type: ignore
         
         # Verify optimization was applied
         assert route_result["optimization_applied"] is True

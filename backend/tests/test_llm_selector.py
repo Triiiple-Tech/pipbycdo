@@ -33,7 +33,7 @@ class TestLLMSelectorRefactored:
         result = select_llm("unknown_agent", {})
         assert result["model"] == DEFAULT_LLM_CONFIG["model"]
         assert result["api_key"] == "mini_api_key_for_default"
-        assert DEFAULT_LLM_CONFIG["api_key_env_var"] == "OPENAI_4.1-mini_KEY" # Verify assumption
+        assert DEFAULT_LLM_CONFIG["api_key_env_vars"][0] == "OPENAI_4.1-mini_KEY" # Verify assumption
 
     @patch.dict(os.environ, clear=True) # No API keys set at all
     def test_select_llm_all_keys_missing_returns_none_for_api_key(self):
@@ -60,24 +60,24 @@ class TestLLMSelectorRefactored:
         assert len(AGENT_LLM_CONFIG["manager"]) > 0
         manager_config = AGENT_LLM_CONFIG["manager"][0]
         assert "model" in manager_config
-        assert "api_key_env_var" in manager_config
+        assert "api_key_env_vars" in manager_config
         assert manager_config["model"] == "o4-mini"
-        assert manager_config["api_key_env_var"] == "OPENAI_o4-mini_KEY"
+        assert manager_config["api_key_env_vars"][0] == "OPENAI_o4-mini_KEY"
 
         assert "estimator" in AGENT_LLM_CONFIG
         assert isinstance(AGENT_LLM_CONFIG["estimator"], list)
         assert len(AGENT_LLM_CONFIG["estimator"]) >= 1 # Check at least primary
         estimator_primary_config = AGENT_LLM_CONFIG["estimator"][0]
         assert estimator_primary_config["model"] == "o3"
-        assert estimator_primary_config["api_key_env_var"] == "OPENAI_o3_KEY"
+        assert estimator_primary_config["api_key_env_vars"][0] == "OPENAI_o3_KEY"
         
         # Check that estimator fallback configs use their respective model-specific keys
         estimator_fallback_config = AGENT_LLM_CONFIG["estimator"][1]
         assert estimator_fallback_config["model"] == "gpt-4o"
-        assert estimator_fallback_config["api_key_env_var"] == "OPENAI_4o_KEY"
+        assert estimator_fallback_config["api_key_env_vars"][0] == "OPENAI_4o_KEY"
 
         # Check DEFAULT_LLM_CONFIG uses model-specific key
-        assert DEFAULT_LLM_CONFIG["api_key_env_var"] == "OPENAI_4.1-mini_KEY"
+        assert DEFAULT_LLM_CONFIG["api_key_env_vars"][0] == "OPENAI_4.1-mini_KEY"
 
 
     @patch.dict(os.environ, {"OPENAI_o4-mini_KEY": "o4_mini_key_for_state_test"})
@@ -94,7 +94,7 @@ class TestLLMSelectorRefactored:
         result = select_llm("some_new_agent_not_in_config", {})
         assert result["model"] == DEFAULT_LLM_CONFIG["model"]
         assert result["api_key"] == "mini_key_to_rule_them_all"
-        assert DEFAULT_LLM_CONFIG["api_key_env_var"] == "OPENAI_4.1-mini_KEY"
+        assert DEFAULT_LLM_CONFIG["api_key_env_vars"][0] == "OPENAI_4.1-mini_KEY"
 
     # The following tests are removed as they're no longer relevant with the model-specific API key strategy.
     # Each model now has its own dedicated API key, providing better load balancing and redundancy.

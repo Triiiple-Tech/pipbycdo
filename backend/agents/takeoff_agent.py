@@ -1,6 +1,6 @@
 # backend/agents/takeoff_agent.py
-from backend.agents.base_agent import BaseAgent
-from backend.app.schemas import AppState
+from agents.base_agent import BaseAgent
+from app.schemas import AppState
 from datetime import datetime, timezone
 import logging
 import random

@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-from backend.app.schemas import AppState, LLMConfig, File, HistoryEntry, AgentTraceEntry, MeetingLogEntry
-from backend.services.llm_selector import select_llm
+from app.schemas import AppState, LLMConfig, File, HistoryEntry, AgentTraceEntry, MeetingLogEntry, EstimateItem
+from services.llm_selector import select_llm
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,15 @@ def create_initial_state(
             else:
                 file_objects.append(file_data)
     
+    # Convert estimate to EstimateItem objects if they're provided as dicts
+    estimate_objects = []
+    if estimate:
+        for estimate_data in estimate:
+            if isinstance(estimate_data, dict):
+                estimate_objects.append(EstimateItem(**estimate_data))
+            else:
+                estimate_objects.append(estimate_data)
+    
     # Create the initial state using AppState model
     initial_state = AppState(
         query=query,
@@ -58,7 +67,7 @@ def create_initial_state(
         metadata=default_metadata,
         user_id=user_id,
         session_id=session_id,
-        estimate=estimate if estimate is not None else [],
+        estimate=estimate_objects,
         llm_config=llm_config,
         created_at=current_time,
         updated_at=current_time

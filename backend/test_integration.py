@@ -35,7 +35,7 @@ def test_integration_pipeline():
         )
     )
     
-    print(f"✅ Initial state created with processed content: {state.content[:50]}...")
+    print(f"✅ Initial state created with processed content: {(state.content or '')[:50]}...")
     
     # Step 1: File Reader - Skip since we're simulating processed content
     print("📄 Step 1: File Reader - Simulated (content pre-processed)")

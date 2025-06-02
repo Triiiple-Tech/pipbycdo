@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
-from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
-from backend.services.utils.state import update_llm_config, log_agent_interaction
-from backend.services.gpt_handler import run_llm
+from app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
+from services.utils.state import update_llm_config, log_agent_interaction
+from services.gpt_handler import run_llm
 import logging
 
 logger = logging.getLogger(__name__)

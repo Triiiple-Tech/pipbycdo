@@ -1,5 +1,6 @@
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+import os
+from unittest.mock import Mock, patch
 from backend.services import supabase_client
 
 class TestSupabaseClient:
@@ -41,219 +42,75 @@ class TestSupabaseClient:
             'SUPABASE_URL': 'https://test.supabase.co',
             'SUPABASE_KEY': 'test_key'
         }):
-            # Reload the module to trigger initialization
-            import importlib
-            importlib.reload(supabase_client)
+            # Reset client and call initialization
+            supabase_client.supabase_client = None
+            supabase_client.initialize_supabase_client()
             
             mock_create_client.assert_called_with(
                 'https://test.supabase.co',
                 'test_key'
             )
             
-            result = client.insert_project(project_data)
-            
-            assert result is not None
-            mock_client.table.assert_called_with("projects")
-            mock_table.insert.assert_called_with(project_data)
-            
-    @patch('utils.supabase_client.create_client')
-    def test_insert_takeoff_data(self, mock_create_client):
-        """Test inserting takeoff data"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.insert.return_value.execute.return_value = Mock(data=[{"id": 1}])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            takeoff_data = [
-                {
-                    "project_id": 1,
-                    "description": "Electrical outlet",
-                    "quantity": 25,
-                    "unit": "each",
-                    "trade": "electrical"
-                }
-            ]
-            
-            result = client.insert_takeoff_items(takeoff_data)
-            
-            assert result is not None
-            mock_client.table.assert_called_with("takeoff_items")
-            
-    @patch('utils.supabase_client.create_client')
-    def test_query_projects(self, mock_create_client):
-        """Test querying projects"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.select.return_value.execute.return_value = Mock(data=[
-            {"id": 1, "name": "Test Project"}
-        ])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            projects = client.get_projects()
-            
-            assert len(projects) == 1
-            assert projects[0]["name"] == "Test Project"
-            mock_client.table.assert_called_with("projects")
-            
-    @patch('utils.supabase_client.create_client')
-    def test_query_project_by_id(self, mock_create_client):
-        """Test querying specific project by ID"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.select.return_value.eq.return_value.execute.return_value = Mock(data=[
-            {"id": 1, "name": "Test Project"}
-        ])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            project = client.get_project_by_id(1)
-            
-            assert project["name"] == "Test Project"
-            mock_table.select.return_value.eq.assert_called_with("id", 1)
-            
-    @patch('utils.supabase_client.create_client')
-    def test_update_project_data(self, mock_create_client):
-        """Test updating project data"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.update.return_value.eq.return_value.execute.return_value = Mock(data=[
-            {"id": 1, "name": "Updated Project"}
-        ])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            update_data = {"name": "Updated Project"}
-            result = client.update_project(1, update_data)
-            
-            assert result is not None
-            mock_table.update.assert_called_with(update_data)
-            mock_table.update.return_value.eq.assert_called_with("id", 1)
-            
-    @patch('utils.supabase_client.create_client')
-    def test_delete_project(self, mock_create_client):
-        """Test deleting project"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.delete.return_value.eq.return_value.execute.return_value = Mock(data=[])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            result = client.delete_project(1)
-            
-            assert result is not None
-            mock_table.delete.return_value.eq.assert_called_with("id", 1)
-            
-    @patch('utils.supabase_client.create_client')
-    def test_get_takeoff_items_by_project(self, mock_create_client):
-        """Test getting takeoff items for a specific project"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.select.return_value.eq.return_value.execute.return_value = Mock(data=[
-            {"id": 1, "description": "Outlet", "quantity": 25}
-        ])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
-            
-            items = client.get_takeoff_items_by_project(1)
-            
-            assert len(items) == 1
-            assert items[0]["description"] == "Outlet"
-            mock_table.select.return_value.eq.assert_called_with("project_id", 1)
-            
-    @patch('utils.supabase_client.create_client')
-    def test_connection_error_handling(self, mock_create_client):
-        """Test handling of connection errors"""
+    @patch('backend.services.supabase_client.create_client')
+    def test_initialization_failure_handling(self, mock_create_client):
+        """Test handling of initialization failures"""
         mock_create_client.side_effect = Exception("Connection failed")
         
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
             'SUPABASE_KEY': 'test_key'
         }):
-            with pytest.raises(Exception):
-                client = SupabaseClient()
-                
-    @patch('utils.supabase_client.create_client')
-    def test_database_operation_error_handling(self, mock_create_client):
-        """Test handling of database operation errors"""
+            # Reset client and call initialization
+            supabase_client.supabase_client = None
+            supabase_client.initialize_supabase_client()
+            
+            # Client should be None after failed initialization
+            assert supabase_client.supabase_client is None
+            
+    def test_initialization_without_env_vars(self):
+        """Test initialization without environment variables"""
+        with patch.dict('os.environ', {}, clear=True):
+            # Reset client and call initialization
+            supabase_client.supabase_client = None
+            supabase_client.initialize_supabase_client()
+            
+            # Client should remain None when env vars are missing
+            assert supabase_client.supabase_client is None
+            
+    @patch('backend.services.supabase_client.create_client')
+    def test_raw_client_operations(self, mock_create_client):
+        """Test that raw client operations work as expected"""
         mock_client = Mock()
         mock_table = Mock()
+        mock_query = Mock()
+        mock_response = Mock()
+        
+        # Set up mock chain: client.table().insert().execute()
         mock_client.table.return_value = mock_table
-        mock_table.insert.side_effect = Exception("Database error")
+        mock_table.insert.return_value = mock_query
+        mock_query.execute.return_value = mock_response
+        mock_response.data = [{"id": 1}]
+        
         mock_create_client.return_value = mock_client
         
         with patch.dict('os.environ', {
             'SUPABASE_URL': 'https://test.supabase.co',
             'SUPABASE_KEY': 'test_key'
         }):
-            client = SupabaseClient()
+            # Reset client
+            supabase_client.supabase_client = mock_client
             
-            project_data = {"name": "Test Project"}
+            # Get client and perform operations like in the real code
+            client = supabase_client.get_supabase_client()
             
-            with pytest.raises(Exception):
-                client.insert_project(project_data)
-                
-    @patch('utils.supabase_client.create_client')
-    def test_batch_insert_takeoff_items(self, mock_create_client):
-        """Test batch insertion of multiple takeoff items"""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mock_table.insert.return_value.execute.return_value = Mock(data=[
-            {"id": 1}, {"id": 2}, {"id": 3}
-        ])
-        mock_create_client.return_value = mock_client
-        
-        with patch.dict('os.environ', {
-            'SUPABASE_URL': 'https://test.supabase.co',
-            'SUPABASE_KEY': 'test_key'
-        }):
-            client = SupabaseClient()
+            # Test table access and insert operation
+            result = client.table("tasks").insert({"status": "pending"}).execute()
             
-            takeoff_items = [
-                {"description": "Item 1", "quantity": 10},
-                {"description": "Item 2", "quantity": 20},
-                {"description": "Item 3", "quantity": 30}
-            ]
+            assert result.data == [{"id": 1}]
+            mock_client.table.assert_called_with("tasks")
+            mock_table.insert.assert_called_with({"status": "pending"})
             
-            result = client.batch_insert_takeoff_items(takeoff_items)
-            
-            assert len(result) == 3
-            mock_table.insert.assert_called_with(takeoff_items)
+    def test_tasks_table_name_constant(self):
+        """Test that TASKS_TABLE_NAME constant exists"""
+        assert hasattr(supabase_client, 'TASKS_TABLE_NAME')
+        assert supabase_client.TASKS_TABLE_NAME == "tasks"

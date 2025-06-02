@@ -1,14 +1,16 @@
 from typing import Dict, List, Optional, Union, Any
-from backend.app.schemas import File, AppState
-from backend.services.utils.state import log_agent_interaction
+from app.schemas import File, AppState
+from services.utils.state import log_agent_interaction
 import io
 import logging
 
 # Import optional dependencies
 try:
-    import PyPDF2
+    from pypdf import PdfReader
+    pypdf_available = True
 except ImportError:
-    PyPDF2 = None
+    PdfReader = None
+    pypdf_available = False
 
 try:
     import docx
@@ -216,16 +218,16 @@ class MultimodalFileParser:
     
     def _parse_pdf(self, data: bytes, filename: str) -> Dict[str, Any]:
         """Parse PDF files."""
-        if not PyPDF2:
+        if not pypdf_available or PdfReader is None:
             return {
-                'content': '[Skipped: PyPDF2 library not available]',
+                'content': '[Skipped: pypdf library not available]',
                 'status': 'error',
-                'error': 'PyPDF2 library not available',
-                'metadata': {'missing_dependency': 'PyPDF2'}
+                'error': 'pypdf library not available',
+                'metadata': {'missing_dependency': 'pypdf'}
             }
         
         try:
-            pdf_reader = PyPDF2.PdfReader(io.BytesIO(data))
+            pdf_reader = PdfReader(io.BytesIO(data))
             text = ""
             page_count = len(pdf_reader.pages)
             
@@ -240,7 +242,7 @@ class MultimodalFileParser:
                 'metadata': {
                     'parsed_pages': page_count,
                     'parsed_chars': len(text),
-                    'parser': 'PyPDF2'
+                    'parser': 'pypdf'
                 }
             }
         except Exception as e:
@@ -248,7 +250,7 @@ class MultimodalFileParser:
                 'content': f'[Error extracting PDF content: {str(e)}]',
                 'status': 'error',
                 'error': str(e),
-                'metadata': {'parser': 'PyPDF2'}
+                'metadata': {'parser': 'pypdf'}
             }
     
     def _parse_docx(self, data: bytes, filename: str) -> Dict[str, Any]:

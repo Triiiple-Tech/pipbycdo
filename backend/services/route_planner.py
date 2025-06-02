@@ -1,7 +1,7 @@
 # backend/services/route_planner.py
 from typing import Dict, List, Optional, Any, Tuple, Callable
-from backend.app.schemas import AppState
-from backend.services.intent_classifier import intent_classifier
+from app.schemas import AppState
+from services.intent_classifier import intent_classifier
 import logging
 
 logger = logging.getLogger(__name__)

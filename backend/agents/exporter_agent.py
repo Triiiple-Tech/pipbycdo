@@ -1,5 +1,5 @@
-from backend.agents.base_agent import BaseAgent
-from backend.app.schemas import AppState, EstimateItem
+from agents.base_agent import BaseAgent
+from app.schemas import AppState, EstimateItem
 import logging
 import json
 from typing import List, Optional

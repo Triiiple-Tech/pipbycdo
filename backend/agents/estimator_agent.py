@@ -1,5 +1,5 @@
-from backend.app.schemas import AppState, EstimateItem
-from backend.agents.base_agent import BaseAgent
+from app.schemas import AppState, EstimateItem
+from agents.base_agent import BaseAgent
 import json
 import random
 from typing import List, Dict, Any, Optional
@@ -17,14 +17,16 @@ class EstimatorAgent(BaseAgent):
     def process(self, state: AppState) -> AppState:
         """Main processing method for the estimator agent."""
         
-        # Validate required fields
-        if not self.validate_required_fields(state, ["takeoff_data"]):
-            return state
-        
+        # Handle case where there's no takeoff data but there is content
         if not state.takeoff_data or len(state.takeoff_data) == 0:
-            self.log_interaction(state, "No takeoff data", 
-                               "No takeoff data available for estimation", level="error")
-            return state
+            if state.content and state.content.strip():
+                self.log_interaction(state, "No takeoff data, processing content directly", 
+                                   "No takeoff data available, attempting direct estimation from content")
+                return self._estimate_from_content(state)
+            else:
+                self.log_interaction(state, "No takeoff data", 
+                                   "No takeoff data available for estimation", level="error")
+                return state
         
         self.log_interaction(state, f"Processing {len(state.takeoff_data)} takeoff items", 
                            "Starting LLM-enhanced estimation based on takeoff data")
@@ -272,6 +274,71 @@ Provide the unit price in USD and explain your reasoning. Consider current 2025 
             csi_division=takeoff_item.get("csi_division", "ERROR"),
             notes=f"Failed to estimate: {error_message}"
         )
+    
+    def _estimate_from_content(self, state: AppState) -> AppState:
+        """Generate estimates directly from content when no takeoff data is available."""
+        
+        try:
+            system_prompt = """You are an expert construction estimator. Generate cost estimates directly from project content.
+
+IMPORTANT: Respond with ONLY a valid JSON array of estimate objects. Each object must have these exact keys:
+[
+    {
+        "item": "<description of work item>",
+        "qty": <numeric quantity>,
+        "unit": "<unit of measure>",
+        "unit_price": <numeric unit price>,
+        "total": <qty * unit_price>
+    }
+]
+
+Generate realistic construction cost estimates based on the content provided."""
+
+            user_prompt = f"""Analyze this project content and generate realistic cost estimates:
+
+{state.content}
+
+Create specific, itemized estimates with quantities, units, and pricing. Focus on measurable work items."""
+
+            response = self.call_llm(state, user_prompt, system_prompt)
+            
+            if response:
+                import json
+                estimates_data = json.loads(response)
+                
+                # Convert to EstimateItem objects
+                new_estimate_items = []
+                for item_data in estimates_data:
+                    if isinstance(item_data, dict) and all(key in item_data for key in ["item", "qty", "unit", "unit_price", "total"]):
+                        estimate_item = EstimateItem(
+                            item=item_data["item"],
+                            description=item_data["item"],
+                            qty=float(item_data["qty"]),
+                            unit=item_data["unit"],
+                            unit_price=float(item_data["unit_price"]),
+                            total=float(item_data["total"]),
+                            csi_division="000000",  # General
+                            notes="Generated from content analysis"
+                        )
+                        new_estimate_items.append(estimate_item)
+                
+                state.estimate = new_estimate_items
+                
+                self.log_interaction(state, "Estimation from content complete", 
+                                   f"Generated {len(new_estimate_items)} estimate items from content analysis")
+                
+                return state
+                
+        except Exception as e:
+            self.log_interaction(state, "Content estimation failed", 
+                               f"Failed to generate estimates from content: {str(e)}", level="error")
+            state.error = f"Failed to generate estimates from content: {str(e)}"
+            return state
+        
+        # Fallback - no estimates generated
+        self.log_interaction(state, "No estimates generated", 
+                           "Unable to generate estimates from content", level="error")
+        return state
 
 
 # Create instance for backward compatibility
@@ -281,4 +348,4 @@ estimator_agent = EstimatorAgent()
 def handle(state_dict: dict) -> dict:
     """Legacy handle function that uses the new EstimatorAgent class."""
     return estimator_agent.handle(state_dict)
-            
+

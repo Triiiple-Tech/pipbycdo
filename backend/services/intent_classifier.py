@@ -1,7 +1,7 @@
 # backend/services/intent_classifier.py
 from typing import Dict, List, Optional, Any
-from backend.app.schemas import AppState
-from backend.services.gpt_handler import run_llm
+from app.schemas import AppState
+from services.gpt_handler import run_llm
 import logging
 import json
 

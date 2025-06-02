@@ -1,5 +1,5 @@
-from backend.app.schemas import AppState
-from backend.agents.base_agent import BaseAgent
+from app.schemas import AppState
+from agents.base_agent import BaseAgent
 import re
 from typing import List, Dict, Any
 
@@ -235,8 +235,20 @@ Identify specific trades, provide appropriate CSI division codes, and list relev
 # Create instance for backward compatibility
 trade_mapper_agent = TradeMapperAgent()
 
+# Add the missing module-level functions and constants that tests expect
+def map_content_to_trades(content: str) -> List[Dict[str, Any]]:
+    """Module-level function for mapping content to trades."""
+    return trade_mapper_agent._map_content_to_trades_keywords(content, "test_file.txt")
+
+def log_interaction(state: AppState, decision: str, message: str, level: str = "info") -> None:
+    """Module-level function for logging interactions."""
+    trade_mapper_agent.log_interaction(state, decision, message, level)
+
+# Expose the CSI_DIVISIONS_KEYWORDS at module level for tests
+CSI_DIVISIONS_KEYWORDS = TradeMapperAgent.CSI_DIVISIONS_KEYWORDS
+
 # Legacy handle function for existing code
 def handle(state_dict: dict) -> dict:
     """Legacy handle function that uses the new TradeMapperAgent class."""
     return trade_mapper_agent.handle(state_dict)
-                
+

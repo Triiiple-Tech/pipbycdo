@@ -3,10 +3,19 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from backend.services.intent_classifier import intent_classifier, IntentClassifier
 from backend.services.route_planner import route_planner, RoutePlanner
-from backend.app.schemas import AppState, File, LLMConfig
+from backend.app.schemas import AppState, File, LLMConfig, EstimateItem
 from backend.agents.manager_agent import _manager_agent
 from datetime import datetime, timezone
+from typing import Dict, Tuple, Callable, Any
 import json
+
+
+def create_mock_agent():
+    """Create a proper mock agent function for testing."""
+    def mock_agent_fn(state):
+        return state
+    return mock_agent_fn
+
 
 class TestIntentClassifier:
     """Test suite for the intent classification service."""
@@ -52,7 +61,7 @@ class TestIntentClassifier:
         """Test context gathering with existing processed data."""
         state = AppState(
             query="Export to PDF",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}],
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)],
             trade_mapping=[{"trade_name": "Concrete", "csi_division": "030000"}]
         )
         
@@ -109,7 +118,7 @@ class TestIntentClassifier:
         
         state = AppState(
             query="export this to PDF format",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}]
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)]
         )
         
         result = intent_classifier._enhance_with_rules(llm_result, state)
@@ -137,7 +146,7 @@ class TestIntentClassifier:
         """Test fallback classification for export scenario."""
         state = AppState(
             query="export to xlsx",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}]
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)]
         )
         
         result = intent_classifier._fallback_classification(state)
@@ -187,7 +196,7 @@ class TestIntentClassifier:
         
         state = AppState(
             query="export to PDF",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}],
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)],
             llm_config=LLMConfig(model="gpt-4o", api_key="test_key")
         )
         
@@ -264,13 +273,13 @@ class TestRoutePlanner:
         }
         
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "trade_mapper": (Mock(), "processed_files_content"),
-            "scope": (Mock(), "trade_mapping")
+            "file_reader": (create_mock_agent(), "files"),
+            "trade_mapper": (create_mock_agent(), "processed_files_content"),
+            "scope": (create_mock_agent(), "trade_mapping")
         }
         
         route_plan = route_planner._create_route_plan(
-            mock_intent_result, state_analysis, available_agents
+            mock_intent_result, state_analysis, available_agents  # type: ignore
         )
         
         assert route_plan["intent"] == "full_estimation"
@@ -293,7 +302,7 @@ class TestRoutePlanner:
         """Test that exporter is never skipped when explicitly requested."""
         state = AppState(
             query="export to PDF please",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}]
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)]
         )
         state_analysis = {"data_freshness": {"estimate": "fresh"}}
         
@@ -304,15 +313,15 @@ class TestRoutePlanner:
         """Test dependency enforcement."""
         sequence = ["estimator"]  # Missing dependencies
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "trade_mapper": (Mock(), "processed_files_content"),
-            "scope": (Mock(), "trade_mapping"),
-            "takeoff": (Mock(), "scope_items"),
-            "estimator": (Mock(), "takeoff_data")
+            "file_reader": (create_mock_agent(), "files"),
+            "trade_mapper": (create_mock_agent(), "processed_files_content"),
+            "scope": (create_mock_agent(), "trade_mapping"),
+            "takeoff": (create_mock_agent(), "scope_items"),
+            "estimator": (create_mock_agent(), "takeoff_data")
         }
         state = AppState()  # No existing data
         
-        final_sequence = route_planner._ensure_dependencies(sequence, available_agents, state)
+        final_sequence = route_planner._ensure_dependencies(sequence, available_agents, state)  # type: ignore
         
         # Should add takeoff dependency for estimator
         assert "takeoff" in final_sequence
@@ -341,14 +350,14 @@ class TestRoutePlanner:
         
         state = AppState(
             query="export to PDF",
-            estimate=[{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}]
+            estimate=[EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)]
         )
         
         available_agents = {
-            "exporter": (Mock(), "estimate")
+            "exporter": (create_mock_agent(), "estimate")
         }
         
-        route_plan = route_planner.plan_route(state, available_agents)
+        route_plan = route_planner.plan_route(state, available_agents)  # type: ignore
         
         assert route_plan["intent"] == "export_existing"
         assert route_plan["sequence"] == ["exporter"]
@@ -357,11 +366,11 @@ class TestRoutePlanner:
     def test_fallback_route_plan(self):
         """Test fallback route planning."""
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "estimator": (Mock(), "takeoff_data")
+            "file_reader": (create_mock_agent(), "files"),
+            "estimator": (create_mock_agent(), "takeoff_data")
         }
         
-        fallback_plan = route_planner._fallback_route_plan(available_agents)
+        fallback_plan = route_planner._fallback_route_plan(available_agents)  # type: ignore
         
         assert fallback_plan["intent"] == "full_estimation"
         assert fallback_plan["confidence"] == 0.5
@@ -390,7 +399,7 @@ class TestManagerAgentEnhancedRouting:
             return state_dict
         
         def mock_estimator(state_dict):
-            state_dict["estimate"] = [{"item": "test", "qty": 1, "unit": "LS", "unit_price": 100, "total": 100}]
+            state_dict["estimate"] = [EstimateItem(item="test", qty=1, unit="LS", unit_price=100, total=100)]
             return state_dict
         
         # Patch the manager's available_agents
@@ -526,14 +535,14 @@ class TestIntegratedEnhancedRouting:
         
         # Test route planning
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "trade_mapper": (Mock(), "processed_files_content"),
-            "scope": (Mock(), "trade_mapping"),
-            "takeoff": (Mock(), "scope_items"),
-            "estimator": (Mock(), "takeoff_data")
+            "file_reader": (create_mock_agent(), "files"),
+            "trade_mapper": (create_mock_agent(), "processed_files_content"),
+            "scope": (create_mock_agent(), "trade_mapping"),
+            "takeoff": (create_mock_agent(), "scope_items"),
+            "estimator": (create_mock_agent(), "takeoff_data")
         }
         
-        route_plan = route_planner.plan_route(state, available_agents)
+        route_plan = route_planner.plan_route(state, available_agents)  # type: ignore
         
         assert route_plan["intent"] == "full_estimation"
         assert len(route_plan["sequence"]) >= 4  # Should include major agents
@@ -555,7 +564,7 @@ class TestIntegratedEnhancedRouting:
         state = AppState(
             query="Export this estimate to PDF format",
             estimate=[
-                {"item": "Concrete Foundation", "qty": 100, "unit": "CY", "unit_price": 150, "total": 15000}
+                EstimateItem(item="Concrete Foundation", qty=100, unit="CY", unit_price=150, total=15000)
             ],
             llm_config=LLMConfig(model="gpt-4o", api_key="test_key")
         )
@@ -566,11 +575,11 @@ class TestIntegratedEnhancedRouting:
         
         # Test route planning
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "exporter": (Mock(), "estimate")
+            "file_reader": (create_mock_agent(), "files"),
+            "exporter": (create_mock_agent(), "estimate")
         }
         
-        route_plan = route_planner.plan_route(state, available_agents)
+        route_plan = route_planner.plan_route(state, available_agents)  # type: ignore
         
         assert route_plan["intent"] == "export_existing"
         assert route_plan["sequence"] == ["exporter"]
@@ -588,14 +597,14 @@ class TestIntegratedEnhancedRouting:
         )
         
         available_agents = {
-            "file_reader": (Mock(), "files"),
-            "trade_mapper": (Mock(), "processed_files_content"),
-            "scope": (Mock(), "trade_mapping"),
-            "takeoff": (Mock(), "scope_items"),
-            "estimator": (Mock(), "takeoff_data")
+            "file_reader": (create_mock_agent(), "files"),
+            "trade_mapper": (create_mock_agent(), "processed_files_content"),
+            "scope": (create_mock_agent(), "trade_mapping"),
+            "takeoff": (create_mock_agent(), "scope_items"),
+            "estimator": (create_mock_agent(), "takeoff_data")
         }
         
-        route_plan = route_planner.plan_route(state, available_agents)
+        route_plan = route_planner.plan_route(state, available_agents)  # type: ignore
         
         # Should skip file_reader and trade_mapper since data exists
         skipped_agents = [agent["agent"] for agent in route_plan["skipped_agents"]]

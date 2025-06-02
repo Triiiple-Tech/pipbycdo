@@ -56,8 +56,19 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
             
+            # Handle model-specific parameter mappings
+            api_params = kwargs.copy()
+            if current_model.startswith("o3"):
+                # o3 models use max_completion_tokens instead of max_tokens
+                if "max_tokens" in api_params:
+                    api_params["max_completion_tokens"] = api_params.pop("max_tokens")
+                
+                # o3 models don't support temperature=0, only default (1)
+                if "temperature" in api_params and api_params["temperature"] == 0:
+                    api_params.pop("temperature")  # Remove temperature=0, use default
+            
             resp = client.chat.completions.create(
-                model=current_model, messages=messages, **kwargs
+                model=current_model, messages=messages, **api_params
             )
             
             result = resp.choices[0].message.content.strip()
@@ -76,21 +87,25 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
             
             logger.warning(f"LLM call failed on attempt {attempt + 1}/{max_retries}: {error_msg}")
             
-            # Try fallback on next iteration if we have an agent name and this isn't the last attempt
-            if agent_name and attempt < max_retries - 1:
-                fallback_config = _get_fallback_for_failed_call(
-                    agent_name, current_model, error_msg, error_type
-                )
-                
-                if fallback_config:
-                    current_model = fallback_config["model"]
-                    current_api_key = fallback_config["api_key"]
-                    logger.info(f"Trying fallback: model '{current_model}' (reason: {error_type})")
+            # If this isn't the last attempt, try to get fallback or continue with same config
+            if attempt < max_retries - 1:
+                if agent_name:
+                    # Try to get a fallback configuration
+                    fallback_config = _get_fallback_for_failed_call(
+                        agent_name, current_model, error_msg, error_type
+                    )
+                    
+                    if fallback_config:
+                        current_model = fallback_config["model"]
+                        current_api_key = fallback_config["api_key"]
+                        logger.info(f"Trying fallback: model '{current_model}' (reason: {error_type})")
+                    else:
+                        logger.warning(f"No fallback available for agent '{agent_name}', model '{current_model}', retrying with same config")
+                        # Continue with same config for simple retry
                 else:
-                    logger.warning(f"No fallback available for agent '{agent_name}', model '{current_model}'")
-                    break
-            else:
-                break
+                    # No agent name provided, just retry with same configuration
+                    logger.debug(f"Retrying with same configuration (no agent fallback available)")
+            # If this is the last attempt, we'll exit the loop and raise the error
     
     # All attempts failed
     raise LLMCallError(
@@ -121,7 +136,7 @@ def _categorize_error(error: Exception) -> str:
 def _get_fallback_for_failed_call(agent_name: str, failed_model: str, error_msg: str, error_type: str) -> Optional[Dict[str, Any]]:
     """Get fallback configuration for a failed LLM call"""
     try:
-        from backend.services.llm_selector import get_fallback_config
+        from services.llm_selector import get_fallback_config
         return get_fallback_config(agent_name, failed_model, f"{error_type}: {error_msg}")
     except ImportError:
         logger.warning("Could not import get_fallback_config, fallback disabled")

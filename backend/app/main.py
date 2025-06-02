@@ -1,7 +1,8 @@
 # pipbycdo/backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # Added
-from backend.routes import api as api_router # Corrected import
+from routes import api as api_router # Fixed relative import
+from routes import analytics as analytics_router # Import analytics router
 
 app = FastAPI(
     title="PipByCDO API",
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router.router, prefix="/api")
+app.include_router(analytics_router.router, prefix="/api/analytics")
 
 @app.get("/health")
 async def health_check():

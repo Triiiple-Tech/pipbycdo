@@ -1,13 +1,13 @@
 # pipbycdo/backend/agents/manager_agent.py
-from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
-from backend.agents.base_agent import BaseAgent
-from backend.agents.file_reader_agent import handle as file_reader_handle
-from backend.agents.trade_mapper_agent import handle as trade_mapper_handle
-from backend.agents.scope_agent import handle as scope_handle
-from backend.agents.takeoff_agent import handle as takeoff_handle
-from backend.agents.estimator_agent import handle as estimator_handle
-from backend.agents.exporter_agent import handle as exporter_handle
-from backend.services.route_planner import route_planner
+from app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
+from agents.base_agent import BaseAgent
+from agents.file_reader_agent import handle as file_reader_handle
+from agents.trade_mapper_agent import handle as trade_mapper_handle
+from agents.scope_agent import handle as scope_handle
+from agents.takeoff_agent import handle as takeoff_handle
+from agents.estimator_agent import handle as estimator_handle
+from agents.exporter_agent import handle as exporter_handle
+from services.route_planner import route_planner
 from datetime import datetime, timezone
 from typing import Optional, Callable, Dict, List, Tuple, Any
 import logging

@@ -1,6 +1,6 @@
-from backend.app.schemas import AppState, File
-from backend.agents.base_agent import BaseAgent
-from backend.services.utils.file_parser import MultimodalFileParser
+from app.schemas import AppState, File
+from agents.base_agent import BaseAgent
+from services.utils.file_parser import MultimodalFileParser
 from typing import Dict, Any
 
 

@@ -8,9 +8,11 @@ import { AgentTrace, ProcessedState } from '../services/api';
 import { ModelType } from '../components/pip/CostBadge';
 import { AgentType as AvatarAgentType, AgentStatus as AvatarAgentStatus } from '../components/pip/AgentAvatar';
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare } from 'lucide-react';
+import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare, Accessibility } from 'lucide-react';
 import { ProjectSidebar } from "@/components/pip/ProjectSidebar";
 import { AdminPanel } from "@/components/pip/AdminPanel";
+import { AccessibilitySettings } from "@/components/AccessibilitySettings";
+import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { auditLogger } from '../services/auditLogger';
 
 interface AgentInfo {
@@ -30,6 +32,7 @@ interface PromptTemplate {
 }
 
 export default function Index() {
+  const { preferences, announceToScreenReader } = useAccessibility();
   const [messages, setMessages] = useState<Message[]>(() => {
     const storedMessages = localStorage.getItem("pipMessages");
     if (storedMessages) {
@@ -513,6 +516,18 @@ Status will be tracked live in chat...`,
 
   return (
     <div className="h-screen bg-white dark:bg-slate-900 flex overflow-hidden">
+      {/* Skip links for keyboard navigation */}
+      {preferences.skipLinks && (
+        <>
+          <a href="#main-content" className="skip-link">
+            Skip to main content
+          </a>
+          <a href="#chat-input" className="skip-link">
+            Skip to chat input
+          </a>
+        </>
+      )}
+      
       {/* Remove gradient overlay for cleaner Apple-esque design */}
       
       <ProjectSidebar
@@ -537,6 +552,22 @@ Status will be tracked live in chat...`,
             <p className="text-sm text-slate-500 dark:text-slate-400">Project Intelligence Platform</p> {/* Typography: Metadata style */}
           </div>
           <div className="flex items-center gap-4">
+            {/* Accessibility Settings Button */}
+            <AccessibilitySettings>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-xs h-7 px-3",
+                  "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red"
+                )}
+                aria-label="Open accessibility settings"
+              >
+                <Accessibility className="w-3 h-3 mr-1" />
+                Accessibility
+              </Button>
+            </AccessibilitySettings>
+
             {/* Admin Panel Button */}
             <Button
               variant="outline"
@@ -588,21 +619,23 @@ Status will be tracked live in chat...`,
           </div>
         </div>
 
-        <ChatInterface
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          onFileUpload={handleFileUpload}
-          isTyping={isTyping}
-          typingAgentName={lastProgressMessage ? "AI Assistant" : "PIP AI"} // Use the new prop
-          className="flex-1"
-          onClearChat={handleClearChat}
-          onNewChat={handleNewChat}
-          isAdminView={isAdminView}
-          promptTemplates={promptTemplates}
-          onSelectPromptTemplate={handleSelectPromptTemplate}
-          showMetadata={isAdminView} // Show metadata when in admin view
-          onToggleMetadata={() => setIsAdminView(!isAdminView)} // Toggle admin view to show/hide metadata
-        />
+        <main id="main-content" className="flex-1">
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onFileUpload={handleFileUpload}
+            isTyping={isTyping}
+            typingAgentName={lastProgressMessage ? "AI Assistant" : "PIP AI"} // Use the new prop
+            className="flex-1"
+            onClearChat={handleClearChat}
+            onNewChat={handleNewChat}
+            isAdminView={isAdminView}
+            promptTemplates={promptTemplates}
+            onSelectPromptTemplate={handleSelectPromptTemplate}
+            showMetadata={isAdminView} // Show metadata when in admin view
+            onToggleMetadata={() => setIsAdminView(!isAdminView)} // Toggle admin view to show/hide metadata
+          />
+        </main>
       </div>
       
       {/* Admin Panel */}

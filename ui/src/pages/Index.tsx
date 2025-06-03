@@ -8,9 +8,10 @@ import { AgentTrace, ProcessedState } from '../services/api';
 import { ModelType } from '../components/pip/CostBadge';
 import { AgentType as AvatarAgentType, AgentStatus as AvatarAgentStatus } from '../components/pip/AgentAvatar';
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare } from 'lucide-react';
+import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare, Search } from 'lucide-react';
 import { ProjectSidebar } from "@/components/pip/ProjectSidebar";
 import { AdminPanel } from "@/components/pip/AdminPanel";
+import { GlobalSearch, SearchResult } from '../components/pip/GlobalSearch';
 import { auditLogger } from '../services/auditLogger';
 
 interface AgentInfo {
@@ -66,6 +67,7 @@ export default function Index() {
   const [isAdminView, setIsAdminView] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [lastProgressMessage, setLastProgressMessage] = useState<string>('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const [agents, setAgents] = useState<AgentInfo[]>([
     { type: "manager", status: "idle", name: "Project Manager", tasksCompleted: 12, modelUsed: "gpt-4-turbo" },
@@ -407,7 +409,7 @@ Status will be tracked live in chat...`,
     // handleSendMessage(prompt);
   };
 
-  // Keyboard shortcuts for templates
+  // Keyboard shortcuts for templates and search
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only trigger if Ctrl/Cmd is pressed
@@ -444,6 +446,26 @@ Status will be tracked live in chat...`,
             currentSessionId
           );
           break;
+        case 'k':
+        case 'K':
+          // Global search with Ctrl/Cmd + K
+          auditLogger.logUserAction(
+            'keyboard_shortcut',
+            'Used keyboard shortcut Ctrl/Cmd+K to open global search',
+            currentSessionId
+          );
+          setIsSearchOpen(true);
+          return;
+        case 'f':
+        case 'F':
+          // Alternative search shortcut with Ctrl/Cmd + F
+          auditLogger.logUserAction(
+            'keyboard_shortcut',
+            'Used keyboard shortcut Ctrl/Cmd+F to open global search',
+            currentSessionId
+          );
+          setIsSearchOpen(true);
+          return;
         case '`':
         case '~':
           // Toggle Admin Panel with Ctrl/Cmd + `
@@ -511,6 +533,33 @@ Status will be tracked live in chat...`,
     setIsAdminView(newAdminView);
   };
 
+  // Handle search result selection
+  const handleSelectSearchResult = useCallback(async (result: SearchResult) => {
+    await auditLogger.logUserAction(
+      'search_result_selected',
+      `Selected search result: ${result.type} - ${result.title}`,
+      currentSessionId
+    );
+
+    // Handle different result types
+    switch (result.type) {
+      case 'message':
+        // You could scroll to the message in the chat or highlight it
+        console.log('Selected message result:', result);
+        break;
+      case 'file':
+        // Handle file selection
+        console.log('Selected file result:', result);
+        break;
+      case 'template':
+        // Apply the template
+        setChatInput(result.content);
+        break;
+      default:
+        console.log('Selected result:', result);
+    }
+  }, [currentSessionId]);
+
   return (
     <div className="h-screen bg-white dark:bg-slate-900 flex overflow-hidden">
       {/* Remove gradient overlay for cleaner Apple-esque design */}
@@ -537,6 +586,28 @@ Status will be tracked live in chat...`,
             <p className="text-sm text-slate-500 dark:text-slate-400">Project Intelligence Platform</p> {/* Typography: Metadata style */}
           </div>
           <div className="flex items-center gap-4">
+            {/* Search Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await auditLogger.logUserAction(
+                  'search_opened',
+                  'User opened global search',
+                  currentSessionId
+                );
+                setIsSearchOpen(true);
+              }}
+              className={cn(
+                "text-xs h-7 px-3",
+                "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red"
+              )}
+              title="Search (Ctrl+K)"
+            >
+              <Search className="w-3 h-3 mr-1" />
+              Search
+            </Button>
+
             {/* Admin Panel Button */}
             <Button
               variant="outline"
@@ -616,6 +687,14 @@ Status will be tracked live in chat...`,
           );
           setIsAdminPanelOpen(false);
         }}
+      />
+
+      {/* Global Search Component */}
+      <GlobalSearch
+        isOpen={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+        messages={messages}
+        onSelectResult={handleSelectSearchResult}
       />
     </div>
   );

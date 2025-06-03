@@ -8,6 +8,7 @@ export { ProjectSidebar } from "./ProjectSidebar";
 export { ChatInterface } from "./ChatInterface";
 export { PromptTemplatesDropdown } from "./PromptTemplatesDropdown";
 export { AdminPanel } from "./AdminPanel";
+export { SettingsPanel } from "./SettingsPanel";
 
 export type { AgentType, AgentStatus } from "./AgentAvatar";
 export type { ModelType } from "./CostBadge";

@@ -8,9 +8,11 @@ import { AgentTrace, ProcessedState } from '../services/api';
 import { ModelType } from '../components/pip/CostBadge';
 import { AgentType as AvatarAgentType, AgentStatus as AvatarAgentStatus } from '../components/pip/AgentAvatar';
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare } from 'lucide-react';
+import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare, User } from 'lucide-react';
 import { ProjectSidebar } from "@/components/pip/ProjectSidebar";
 import { AdminPanel } from "@/components/pip/AdminPanel";
+import { SettingsPanel } from "@/components/pip/SettingsPanel";
+import { useUserSettings } from "@/contexts/UserSettingsContext";
 import { auditLogger } from '../services/auditLogger';
 
 interface AgentInfo {
@@ -65,7 +67,11 @@ export default function Index() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAdminView, setIsAdminView] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [lastProgressMessage, setLastProgressMessage] = useState<string>('');
+
+  // Get user settings
+  const { settings } = useUserSettings();
 
   const [agents, setAgents] = useState<AgentInfo[]>([
     { type: "manager", status: "idle", name: "Project Manager", tasksCompleted: 12, modelUsed: "gpt-4-turbo" },
@@ -454,6 +460,18 @@ Status will be tracked live in chat...`,
           );
           setIsAdminPanelOpen(prev => !prev);
           return;
+        case 'S':
+          // Check if Shift is also pressed for Ctrl/Cmd + Shift + S
+          if (event.shiftKey) {
+            auditLogger.logUserAction(
+              'keyboard_shortcut',
+              `Used keyboard shortcut Ctrl/Cmd+Shift+S to toggle settings panel`,
+              currentSessionId
+            );
+            setIsSettingsPanelOpen(prev => !prev);
+            return;
+          }
+          break;
         default:
           return;
       }
@@ -537,6 +555,27 @@ Status will be tracked live in chat...`,
             <p className="text-sm text-slate-500 dark:text-slate-400">Project Intelligence Platform</p> {/* Typography: Metadata style */}
           </div>
           <div className="flex items-center gap-4">
+            {/* Settings Panel Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await auditLogger.logUserAction(
+                  'settings_panel_opened',
+                  'User opened settings panel',
+                  currentSessionId
+                );
+                setIsSettingsPanelOpen(true);
+              }}
+              className={cn(
+                "text-xs h-7 px-3",
+                "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-blue-500 hover:text-blue-500 focus-visible:ring-blue-500"
+              )}
+            >
+              <User className="w-3 h-3 mr-1" />
+              Settings
+            </Button>
+
             {/* Admin Panel Button */}
             <Button
               variant="outline"
@@ -615,6 +654,19 @@ Status will be tracked live in chat...`,
             currentSessionId
           );
           setIsAdminPanelOpen(false);
+        }}
+      />
+
+      {/* Settings Panel */}
+      <SettingsPanel 
+        isOpen={isSettingsPanelOpen}
+        onClose={async () => {
+          await auditLogger.logUserAction(
+            'settings_panel_closed',
+            'User closed settings panel',
+            currentSessionId
+          );
+          setIsSettingsPanelOpen(false);
         }}
       />
     </div>

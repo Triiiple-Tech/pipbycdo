@@ -291,3 +291,80 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* User Settings Theme Support */
+:root {
+  --font-size-base: 16px;
+}
+
+/* Font size customization */
+.text-sm { font-size: calc(var(--font-size-base) * 0.875); }
+.text-base { font-size: var(--font-size-base); }
+.text-lg { font-size: calc(var(--font-size-base) * 1.125); }
+.text-xl { font-size: calc(var(--font-size-base) * 1.25); }
+
+/* High contrast mode */
+.high-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --border: 0 0% 50%;
+  --ring: 350 100% 50%;
+}
+
+.dark.high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --border: 0 0% 50%;
+  --ring: 350 100% 60%;
+}
+
+/* Accent color theming */
+[data-accent="cdo-red"] {
+  --primary: 350 100% 45%;
+  --ring: 350 100% 45%;
+}
+
+[data-accent="blue"] {
+  --primary: 217 100% 53%;
+  --ring: 217 100% 53%;
+}
+
+[data-accent="green"] {
+  --primary: 144 84% 57%;
+  --ring: 144 84% 57%;
+}
+
+[data-accent="purple"] {
+  --primary: 262 100% 63%;
+  --ring: 262 100% 63%;
+}
+
+[data-accent="orange"] {
+  --primary: 25 100% 55%;
+  --ring: 25 100% 55%;
+}
+
+/* Reduced motion support */
+.reduce-motion * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* Custom scrollbar for settings panels */
+.settings-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}

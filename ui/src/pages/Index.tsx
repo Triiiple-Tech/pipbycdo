@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare } from 'lucide-react';
 import { ProjectSidebar } from "@/components/pip/ProjectSidebar";
 import { AdminPanel } from "@/components/pip/AdminPanel";
+import { StatusIndicator } from "@/components/ui/status-indicator";
+import { useVisualFeedback } from "@/contexts/VisualFeedbackContext";
 import { auditLogger } from '../services/auditLogger';
 
 interface AgentInfo {
@@ -30,6 +32,7 @@ interface PromptTemplate {
 }
 
 export default function Index() {
+  const { showSuccess, showError, showInfo } = useVisualFeedback();
   const [messages, setMessages] = useState<Message[]>(() => {
     const storedMessages = localStorage.getItem("pipMessages");
     if (storedMessages) {
@@ -97,6 +100,12 @@ export default function Index() {
         'error'
       );
 
+      // Show error notification
+      showError(
+        `Analysis failed: ${errorMsg}`,
+        "Analysis Error"
+      );
+
       const errorMessage: Message = {
         id: uuidv4(),
         type: "system", // Use 'type' as per Message interface
@@ -112,14 +121,20 @@ export default function Index() {
 
   const handleAnalysisComplete = async (result: ProcessedState) => {
     setIsTyping(false);
-    let responseSummary = "✅ Analysis completed successfully!\\n";
+    let responseSummary = "✅ Analysis completed successfully!\n";
 
     if (result.processed_files_content) {
       const fileCount = Object.keys(result.processed_files_content).length;
-      responseSummary += `📄 **Files Processed:** ${fileCount} documents analyzed\\n`;
+      responseSummary += `📄 **Files Processed:** ${fileCount} documents analyzed\n`;
+      
+      // Show success notification for file processing
+      showSuccess(
+        `Successfully analyzed ${fileCount} documents`,
+        "Analysis Complete"
+      );
     }
     if (result.trade_mapping?.length) {
-      responseSummary += `🔧 **Trades Identified:** ${result.trade_mapping.length} trade categories\\n`;
+      responseSummary += `🔧 **Trades Identified:** ${result.trade_mapping.length} trade categories\n`;
     }
 
     const newMessages: Message[] = [];
@@ -311,6 +326,12 @@ Status will be tracked live in chat...`,
         errorMessage
       );
 
+      // Show error notification
+      showError(
+        `Failed to submit analysis: ${errorMessage}`,
+        "Submission Error"
+      );
+
       setIsTyping(false);
       const errorResponseMessage: Message = {
         id: uuidv4(),
@@ -336,6 +357,12 @@ Status will be tracked live in chat...`,
       currentSessionId
     );
 
+    // Show success notification for file upload
+    showSuccess(
+      `Successfully uploaded ${uploadedFiles.length} file(s): ${uploadedFiles.map(f => f.name).join(', ')}`,
+      "Files Uploaded"
+    );
+
     const fileDisplayMessages: Message[] = uploadedFiles.map(file => ({
       id: uuidv4(),
       type: "user", // Or 'system' to denote file drop
@@ -347,7 +374,7 @@ Status will be tracked live in chat...`,
     }));
     setMessages(prev => [...prev, ...fileDisplayMessages]);
     // Optionally trigger analysis: handleSendMessage("Analyze uploaded files", uploadedFiles);
-  }, [currentSessionId]);
+  }, [currentSessionId, showSuccess]);
 
   useEffect(() => {
     try {
@@ -475,6 +502,12 @@ Status will be tracked live in chat...`,
       currentSessionId
     );
 
+    // Show info notification
+    showInfo(
+      `Cleared ${messages.length} messages from chat`,
+      "Chat Cleared"
+    );
+
     setMessages([]);
     // Reset agents to idle status when clearing chat
     setAgents(prev => prev.map(agent => ({
@@ -559,17 +592,11 @@ Status will be tracked live in chat...`,
             </Button>
             
             {/* Status Indicator */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-2 h-2 rounded-full",
-                analysis.isLoading && 'bg-agent-blue animate-ping',
-                analysis.error && 'bg-red-500',
-                !analysis.isLoading && !analysis.error && 'bg-agent-green'
-              )} />
-              <span className="text-sm text-slate-600 dark:text-slate-400"> {/* Typography: Metadata style */}
-                {analysis.isLoading ? (lastProgressMessage || 'Processing...') : analysis.error ? 'Error' : 'Ready'}
-              </span>
-            </div>
+            <StatusIndicator
+              status={analysis.isLoading ? "loading" : analysis.error ? "error" : "idle"}
+              message={analysis.isLoading ? (lastProgressMessage || 'Processing...') : analysis.error ? 'Error' : 'Ready'}
+              size="sm"
+            />
             
             {/* Admin Toggle */}
             <Button

@@ -9,6 +9,7 @@ import { FileUploadOverlay } from "./FileUploadOverlay";
 import { ConfirmModal } from "./ConfirmModal";
 import { PromptTemplatesDropdown, PromptTemplate } from "./PromptTemplatesDropdown";
 import { Badge } from "@/components/ui/badge";
+import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { motion, AnimatePresence } from 'framer-motion';
 import { auditLogger } from '../../services/auditLogger';
 import {
@@ -277,44 +278,56 @@ export function ChatInterface({
         
         <div className="flex items-center gap-2">
           {onToggleMetadata && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleMetadata}
-              className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 focus-visible:ring-cdo-red"
-              title={showMetadata ? "Hide metadata" : "Show metadata"}
-              aria-label={showMetadata ? "Hide message metadata" : "Show message metadata"}
+            <EnhancedTooltip 
+              content={showMetadata ? "Hide message metadata and timing information" : "Show detailed message metadata and timing information"} 
+              variant="info"
             >
-              {showMetadata ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              <span className="ml-1 text-xs">Metadata</span>
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleMetadata}
+                className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 focus-visible:ring-cdo-red"
+                aria-label={showMetadata ? "Hide message metadata" : "Show message metadata"}
+              >
+                {showMetadata ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="ml-1 text-xs">Metadata</span>
+              </Button>
+            </EnhancedTooltip>
           )}
           
           {onNewChat && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onNewChat}
-              className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 focus-visible:ring-cdo-red"
-              title="New chat"
-              aria-label="Start new chat conversation"
+            <EnhancedTooltip 
+              content="Start a new chat conversation. Current session will be saved automatically." 
+              variant="info"
             >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onNewChat}
+                className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 focus-visible:ring-cdo-red"
+                aria-label="Start new chat conversation"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </EnhancedTooltip>
           )}
           
           {onClearChat && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearChat}
-              disabled={messages.length === 0}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 focus-visible:ring-cdo-red disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Clear chat"
-              aria-label="Clear all messages in current chat"
+            <EnhancedTooltip 
+              content={messages.length === 0 ? "No messages to clear" : "Clear all messages in the current chat. This action cannot be undone."} 
+              variant={messages.length === 0 ? "info" : "warning"}
             >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearChat}
+                disabled={messages.length === 0}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 focus-visible:ring-cdo-red disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Clear all messages in current chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </EnhancedTooltip>
           )}
         </div>
       </div>
@@ -531,25 +544,29 @@ export function ChatInterface({
               className="border-slate-200 dark:border-slate-700"
             />
 
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:ring-cdo-red"
-              onClick={() => {
-                const newState = !showFileUpload;
-                const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
-                auditLogger.logUserAction(
-                  'file_upload_panel_toggled',
-                  `User ${newState ? 'opened' : 'closed'} file upload panel`,
-                  currentSessionId
-                );
-                setShowFileUpload(newState);
-              }}
-              title="Attach files"
-              aria-label="Attach files to message"
+            <EnhancedTooltip 
+              content="Attach files to your message. Supports PDF, documents, images and more."
+              variant="info"
             >
-              <Paperclip className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:ring-cdo-red"
+                onClick={() => {
+                  const newState = !showFileUpload;
+                  const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
+                  auditLogger.logUserAction(
+                    'file_upload_panel_toggled',
+                    `User ${newState ? 'opened' : 'closed'} file upload panel`,
+                    currentSessionId
+                  );
+                  setShowFileUpload(newState);
+                }}
+                aria-label="Attach files to message"
+              >
+                <Paperclip className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              </Button>
+            </EnhancedTooltip>
 
             <Button
               size="sm"
@@ -578,15 +595,24 @@ export function ChatInterface({
               )}
             </Button>
 
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={!input.trim() && pendingFiles.length === 0}
-              className="h-8 px-4 bg-cdo-red hover:bg-cdo-red/90 text-white shadow-sm hover:shadow-md transition-all duration-200 focus-visible:ring-cdo-red focus-visible:ring-offset-2"
-              aria-label="Send message"
+            <EnhancedTooltip 
+              content={
+                !input.trim() && pendingFiles.length === 0 
+                  ? "Type a message or upload files to send" 
+                  : `Send message${pendingFiles.length > 0 ? ` with ${pendingFiles.length} file(s)` : ''} (⌘+Enter)`
+              }
+              variant={!input.trim() && pendingFiles.length === 0 ? "info" : "default"}
             >
-              <Send className="w-4 h-4" />
-            </Button>
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={!input.trim() && pendingFiles.length === 0}
+                className="h-8 px-4 bg-cdo-red hover:bg-cdo-red/90 text-white shadow-sm hover:shadow-md transition-all duration-200 focus-visible:ring-cdo-red focus-visible:ring-offset-2"
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </EnhancedTooltip>
           </div>
         </div>
 

@@ -8,10 +8,12 @@ import { AgentTrace, ProcessedState } from '../services/api';
 import { ModelType } from '../components/pip/CostBadge';
 import { AgentType as AvatarAgentType, AgentStatus as AvatarAgentStatus } from '../components/pip/AgentAvatar';
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare } from 'lucide-react';
+import { Sparkles, FileText, Zap, Settings, Trash2, PlusSquare, Menu } from 'lucide-react';
 import { ProjectSidebar } from "@/components/pip/ProjectSidebar";
 import { AdminPanel } from "@/components/pip/AdminPanel";
 import { auditLogger } from '../services/auditLogger';
+import { useIsMobile, useDeviceType, useIsTablet, useIsDesktop } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface AgentInfo {
   type: AvatarAgentType; // Use AvatarAgentType for compatibility with ProjectSidebar
@@ -66,6 +68,13 @@ export default function Index() {
   const [isAdminView, setIsAdminView] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [lastProgressMessage, setLastProgressMessage] = useState<string>('');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Responsive hooks
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+  const isDesktop = useIsDesktop();
+  const deviceType = useDeviceType();
 
   const [agents, setAgents] = useState<AgentInfo[]>([
     { type: "manager", status: "idle", name: "Project Manager", tasksCompleted: 12, modelUsed: "gpt-4-turbo" },
@@ -513,31 +522,82 @@ Status will be tracked live in chat...`,
 
   return (
     <div className="h-screen bg-white dark:bg-slate-900 flex overflow-hidden">
-      {/* Remove gradient overlay for cleaner Apple-esque design */}
-      
-      <ProjectSidebar
-        agents={agents} // agents state now uses AvatarAgentType for `type` field
-        isCollapsed={sidebarCollapsed}
-        onToggle={async () => {
-          const newState = !sidebarCollapsed;
-          await auditLogger.logUserAction(
-            'sidebar_toggled',
-            `User ${newState ? 'collapsed' : 'expanded'} sidebar`,
-            currentSessionId
-          );
-          setSidebarCollapsed(newState);
-        }}
-      />
+      {/* Desktop Sidebar - Hidden on mobile */}
+      {!isMobile && (
+        <ProjectSidebar
+          agents={agents} // agents state now uses AvatarAgentType for `type` field
+          isCollapsed={sidebarCollapsed}
+          onToggle={async () => {
+            const newState = !sidebarCollapsed;
+            await auditLogger.logUserAction(
+              'sidebar_toggled',
+              `User ${newState ? 'collapsed' : 'expanded'} sidebar`,
+              currentSessionId
+            );
+            setSidebarCollapsed(newState);
+          }}
+        />
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header - Apply design brief typography and colors */}
-        <div className="h-16 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between px-6 shrink-0 shadow-sm">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-200">PIP AI</h1> {/* Typography: Page Header style */}
-            <p className="text-sm text-slate-500 dark:text-slate-400">Project Intelligence Platform</p> {/* Typography: Metadata style */}
+        {/* Header - Responsive design with mobile hamburger */}
+        <div className={cn(
+          "h-16 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between shrink-0 shadow-sm",
+          // Responsive padding
+          "px-4 sm:px-6"
+        )}>
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger menu */}
+            {isMobile && (
+              <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 lg:hidden"
+                    onClick={() => {
+                      auditLogger.logUserAction(
+                        'mobile_sidebar_opened',
+                        'User opened mobile sidebar',
+                        currentSessionId
+                      );
+                    }}
+                  >
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Toggle sidebar</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-80 p-0">
+                  <ProjectSidebar
+                    agents={agents}
+                    isCollapsed={false}
+                    onToggle={() => setMobileSidebarOpen(false)}
+                    isMobile
+                  />
+                </SheetContent>
+              </Sheet>
+            )}
+
+            <div>
+              <h1 className={cn(
+                "font-bold text-slate-800 dark:text-slate-200",
+                // Responsive typography
+                isMobile ? "text-lg" : "text-xl"
+              )}>
+                PIP AI
+              </h1>
+              <p className={cn(
+                "text-slate-500 dark:text-slate-400",
+                // Responsive typography  
+                isMobile ? "text-xs" : "text-sm"
+              )}>
+                Project Intelligence Platform
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Admin Panel Button */}
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Admin Panel Button - Responsive sizing */}
             <Button
               variant="outline"
               size="sm"
@@ -550,12 +610,13 @@ Status will be tracked live in chat...`,
                 setIsAdminPanelOpen(true);
               }}
               className={cn(
-                "text-xs h-7 px-3",
-                "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red"
+                "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red",
+                // Responsive sizing
+                isMobile ? "text-xs h-8 px-2" : "text-xs h-7 px-3"
               )}
             >
-              <Settings className="w-3 h-3 mr-1" />
-              Admin Panel
+              <Settings className={cn("mr-1", isMobile ? "w-3 h-3" : "w-3 h-3")} />
+              {!isMobile && "Admin Panel"}
             </Button>
             
             {/* Status Indicator */}
@@ -566,24 +627,27 @@ Status will be tracked live in chat...`,
                 analysis.error && 'bg-red-500',
                 !analysis.isLoading && !analysis.error && 'bg-agent-green'
               )} />
-              <span className="text-sm text-slate-600 dark:text-slate-400"> {/* Typography: Metadata style */}
-                {analysis.isLoading ? (lastProgressMessage || 'Processing...') : analysis.error ? 'Error' : 'Ready'}
-              </span>
+              {!isMobile && (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {analysis.isLoading ? (lastProgressMessage || 'Processing...') : analysis.error ? 'Error' : 'Ready'}
+                </span>
+              )}
             </div>
             
-            {/* Admin Toggle */}
+            {/* Admin Toggle - Responsive sizing */}
             <Button
               variant={isAdminView ? "default" : "outline"}
               size="sm"
               onClick={toggleAdminView}
               className={cn(
-                "text-xs h-7 px-3",
                 isAdminView 
                   ? "bg-cdo-red hover:bg-cdo-red/90 text-white focus-visible:ring-cdo-red" 
-                  : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red"
+                  : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-cdo-red hover:text-cdo-red focus-visible:ring-cdo-red",
+                // Responsive sizing
+                isMobile ? "text-xs h-8 px-2" : "text-xs h-7 px-3"
               )}
             >
-              Admin: {isAdminView ? 'ON' : 'OFF'}
+              {isMobile ? (isAdminView ? 'ON' : 'OFF') : `Admin: ${isAdminView ? 'ON' : 'OFF'}`}
             </Button>
           </div>
         </div>
@@ -602,6 +666,9 @@ Status will be tracked live in chat...`,
           onSelectPromptTemplate={handleSelectPromptTemplate}
           showMetadata={isAdminView} // Show metadata when in admin view
           onToggleMetadata={() => setIsAdminView(!isAdminView)} // Toggle admin view to show/hide metadata
+          deviceType={deviceType} // Pass device type for responsive behavior
+          isMobile={isMobile}
+          isTablet={isTablet}
         />
       </div>
       

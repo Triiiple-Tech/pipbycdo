@@ -521,7 +521,7 @@ Status will be tracked live in chat...`,
   };
 
   return (
-    <div className="h-screen bg-white dark:bg-slate-900 flex overflow-hidden">
+    <div className="h-screen h-screen-ios bg-white dark:bg-slate-900 flex overflow-hidden safe-area-top safe-area-bottom">
       {/* Desktop Sidebar - Hidden on mobile */}
       {!isMobile && (
         <ProjectSidebar

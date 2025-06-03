@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,8 @@ import { PromptTemplatesDropdown, PromptTemplate } from "./PromptTemplatesDropdo
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from 'framer-motion';
 import { auditLogger } from '../../services/auditLogger';
+import { useGestures, GesturePresets } from '@/hooks/use-gestures';
+import { usePerformanceOptimization, useVirtualScrolling } from '@/hooks/use-performance';
 import {
   Send,
   Paperclip,
@@ -111,6 +113,48 @@ export function ChatInterface({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Performance optimization
+  const { shouldOptimize } = usePerformanceOptimization();
+  
+  // Virtual scrolling for long message lists on low-end devices
+  const containerHeight = 600; // Default height, should be measured in practice
+  const itemHeight = 120; // Average message height
+  const {
+    visibleItems,
+    handleScroll: handleVirtualScroll,
+    totalHeight,
+    offsetY,
+  } = useVirtualScrolling(messages, itemHeight, containerHeight, shouldOptimize && messages.length > 50);
+
+  // Gesture support for mobile
+  const { ref: gestureRef, gestureState } = useGestures(
+    {
+      onSwipeRight: () => {
+        if (isMobile && onToggleAdminView) {
+          // On mobile, swipe right to toggle sidebar
+          onToggleAdminView();
+        }
+      },
+      onSwipeLeft: () => {
+        if (isMobile && input.trim()) {
+          // On mobile, swipe left to send message
+          handleSend();
+        }
+      },
+      onSwipeUp: () => {
+        if (isMobile && !showFileUpload) {
+          // On mobile, swipe up to show file upload
+          setShowFileUpload(true);
+        }
+      },
+    },
+    {
+      ...GesturePresets.swipeNavigation,
+      enabled: isMobile,
+    }
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -249,6 +293,7 @@ export function ChatInterface({
 
   return (
     <div 
+      ref={gestureRef}
       className={cn("flex flex-col h-full bg-white dark:bg-slate-900 relative", className)}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -346,18 +391,20 @@ export function ChatInterface({
         </div>
       </div>
 
-      {/* Chat Messages - Responsive */}
+      {/* Chat Messages - Responsive with Virtual Scrolling */}
       <div 
+        ref={messagesContainerRef}
         className={cn(
-          "flex-1 overflow-y-auto space-y-4 bg-gray-50 dark:bg-slate-900",
+          "flex-1 overflow-y-auto space-y-4 bg-gray-50 dark:bg-slate-900 ios-scroll-fix",
           // Responsive padding
-          isMobile ? "p-4" : "p-6",
+          isMobile ? "p-4 mobile-scroll-padding" : "p-6",
           // Responsive spacing
           isMobile ? "space-y-4" : "space-y-6"
         )}
         role="log"
         aria-label="Chat conversation history"
         aria-live="polite"
+        onScroll={shouldOptimize && messages.length > 50 ? handleVirtualScroll : undefined}
       >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center" role="banner">
@@ -397,7 +444,7 @@ export function ChatInterface({
                     key={action.label}
                     variant="outline"
                     className={cn(
-                      "h-auto bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-cdo-red hover:bg-cdo-red/5 dark:hover:bg-cdo-red/10 transition-all duration-200 flex flex-col gap-3 shadow-sm hover:shadow-md focus-visible:ring-cdo-red",
+                      "h-auto bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-cdo-red hover:bg-cdo-red/5 dark:hover:bg-cdo-red/10 transition-all duration-200 flex flex-col gap-3 shadow-sm hover:shadow-md focus-visible:ring-cdo-red touch-target",
                       // Responsive padding and sizing
                       isMobile ? "p-4 min-h-[60px]" : "p-6"
                     )}
@@ -414,37 +461,42 @@ export function ChatInterface({
             </div>
           </div>
         ) : (
-          <>
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                showMetadata={showMetadata}
-                onToggleMetadata={onToggleMetadata}
-                isMobile={isMobile}
-                onCopy={() => {
-                  navigator.clipboard.writeText(message.content);
-                  const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
-                  const agentName = message.agentType || message.agentName || 'assistant';
-                  auditLogger.logUserAction(
-                    'message_copied',
-                    `User copied message content from ${message.type === 'user' ? 'user' : agentName}`,
-                    currentSessionId
-                  );
-                }}
-                onFeedback={(positive) => {
-                  console.log("Feedback:", positive);
-                  const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
-                  const agentName = message.agentType || message.agentName || 'assistant';
-                  auditLogger.logUserAction(
-                    'message_feedback',
-                    `User gave ${positive ? 'positive' : 'negative'} feedback to ${agentName} message`,
-                    currentSessionId
-                  );
-                }}
-                aria-label={`Message ${index + 1} from ${message.type === 'user' ? 'you' : message.agentName || 'assistant'}`}
-              />
-            ))}
+          <div style={{ height: shouldOptimize && messages.length > 50 ? totalHeight : 'auto' }}>
+            <div style={{ transform: `translateY(${offsetY}px)` }}>
+              {(shouldOptimize && messages.length > 50 
+                ? messages.slice(visibleItems.start, visibleItems.end)
+                : messages
+              ).map((message, index) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  showMetadata={showMetadata}
+                  onToggleMetadata={onToggleMetadata}
+                  isMobile={isMobile}
+                  onCopy={() => {
+                    navigator.clipboard.writeText(message.content);
+                    const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
+                    const agentName = message.agentType || message.agentName || 'assistant';
+                    auditLogger.logUserAction(
+                      'message_copied',
+                      `User copied message content from ${message.type === 'user' ? 'user' : agentName}`,
+                      currentSessionId
+                    );
+                  }}
+                  onFeedback={(positive) => {
+                    console.log("Feedback:", positive);
+                    const currentSessionId = localStorage.getItem("pipSessionId") || 'default-session';
+                    const agentName = message.agentType || message.agentName || 'assistant';
+                    auditLogger.logUserAction(
+                      'message_feedback',
+                      `User gave ${positive ? 'positive' : 'negative'} feedback to ${agentName} message`,
+                      currentSessionId
+                    );
+                  }}
+                  aria-label={`Message ${(shouldOptimize && messages.length > 50 ? visibleItems.start : 0) + index + 1} from ${message.type === 'user' ? 'you' : message.agentName || 'assistant'}`}
+                />
+              ))}
+            </div>
 
             {/* Enhanced Typing Indicator */}
             <AnimatePresence>
@@ -458,7 +510,7 @@ export function ChatInterface({
               )}
             </AnimatePresence>
             <div ref={messagesEndRef} />
-          </>
+          </div>
         )}
       </div>
 
@@ -684,13 +736,14 @@ export function ChatInterface({
               onClick={handleSend}
               disabled={!input.trim() && pendingFiles.length === 0}
               className={cn(
-                "bg-cdo-red hover:bg-cdo-red/90 text-white shadow-sm hover:shadow-md transition-all duration-200 focus-visible:ring-cdo-red focus-visible:ring-offset-2",
+                "bg-cdo-red hover:bg-cdo-red/90 text-white shadow-sm hover:shadow-md transition-all duration-200 focus-visible:ring-cdo-red focus-visible:ring-offset-2 touch-target",
                 // Touch-optimized sizing
-                isMobile ? "h-9 px-3" : "h-8 px-4"
+                isMobile ? "h-11 px-4 min-w-[44px]" : "h-8 px-4"
               )}
               aria-label="Send message"
             >
               <Send className={cn(isMobile ? "w-5 h-5" : "w-4 h-4")} />
+              {isMobile && <span className="ml-2 text-sm">Send</span>}
             </Button>
           </div>
         </div>

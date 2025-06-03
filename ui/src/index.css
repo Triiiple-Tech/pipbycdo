@@ -472,6 +472,31 @@ select:focus-visible {
   }
 }
 
+/* Scroll padding for mobile keyboards */
+@media (max-width: 639px) {
+  .mobile-scroll-padding {
+    scroll-padding-bottom: 80px; /* Space for mobile keyboards */
+  }
+  
+  /* Prevent zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* iOS-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .ios-scroll-fix {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix for iOS viewport units */
+  .h-screen-ios {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
+
 /* Accessibility enhancements */
 @media (forced-colors: active) {
   .cdo-red {

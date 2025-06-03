@@ -1,0 +1,24 @@
+{
+  "name": "pip-ai-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for PIP AI project enhanced GitHub Copilot integration",
+  "main": "mcp-server-simple.js",
+  "scripts": {
+    "start": "node mcp-server-simple.js",
+    "dev": "nodemon mcp-server-simple.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "github-copilot",
+    "ai-agents",
+    "construction",
+    "document-analysis"
+  ],
+  "author": "PIP AI Team",
+  "license": "MIT"
+}

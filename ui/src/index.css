@@ -291,3 +291,177 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* High contrast mode */
+.high-contrast {
+  --background: 0 0% 0%; /* Pure black */
+  --foreground: 0 0% 100%; /* Pure white */
+  --card: 0 0% 0%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 0%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%; /* White for high contrast */
+  --primary-foreground: 0 0% 0%; /* Black text on white */
+  --secondary: 0 0% 100%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 100%;
+  --accent: 0 0% 100%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 0 0% 100%;
+}
+
+/* Color blind friendly palettes */
+.protanopia {
+  --primary: 210 100% 50%; /* Blue instead of red */
+  --agent-blue: 210 100% 50%;
+  --agent-teal: 210 100% 70%;
+  --agent-green: 60 100% 50%; /* Yellow instead of green */
+}
+
+.deuteranopia {
+  --primary: 210 100% 50%; /* Blue instead of red */
+  --agent-blue: 210 100% 50%;
+  --agent-teal: 210 100% 70%;
+  --agent-green: 60 100% 50%; /* Yellow instead of green */
+}
+
+.tritanopia {
+  --primary: 300 100% 50%; /* Magenta instead of red */
+  --agent-blue: 300 100% 70%; /* Pink instead of blue */
+  --agent-teal: 180 100% 50%; /* Cyan remains similar */
+  --agent-green: 120 100% 50%; /* Green remains usable */
+}
+
+.monochrome {
+  --primary: 0 0% 20%; /* Dark gray */
+  --primary-foreground: 0 0% 100%;
+  --agent-blue: 0 0% 40%;
+  --agent-teal: 0 0% 60%;
+  --agent-green: 0 0% 80%;
+  --secondary: 0 0% 90%;
+  --secondary-foreground: 0 0% 10%;
+  --accent: 0 0% 85%;
+  --accent-foreground: 0 0% 15%;
+}
+
+/* Font size adjustments */
+.font-small {
+  font-size: 14px;
+}
+
+.font-small h1 { font-size: 1.5rem; }
+.font-small h2 { font-size: 1.25rem; }
+.font-small h3 { font-size: 1.125rem; }
+.font-small .text-sm { font-size: 0.75rem; }
+.font-small .text-xs { font-size: 0.65rem; }
+
+.font-medium {
+  font-size: 16px; /* Default */
+}
+
+.font-large {
+  font-size: 18px;
+}
+
+.font-large h1 { font-size: 2.5rem; }
+.font-large h2 { font-size: 2rem; }
+.font-large h3 { font-size: 1.75rem; }
+.font-large .text-sm { font-size: 1rem; }
+.font-large .text-xs { font-size: 0.875rem; }
+
+.font-extra-large {
+  font-size: 20px;
+}
+
+.font-extra-large h1 { font-size: 3rem; }
+.font-extra-large h2 { font-size: 2.5rem; }
+.font-extra-large h3 { font-size: 2rem; }
+.font-extra-large .text-sm { font-size: 1.125rem; }
+.font-extra-large .text-xs { font-size: 1rem; }
+
+/* Motion preferences */
+.motion-reduced * {
+  animation-duration: 0.15s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.15s !important;
+}
+
+.motion-none * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Reduced transparency */
+.reduced-transparency .glass,
+.reduced-transparency .glass-dark,
+.reduced-transparency [class*="backdrop-blur"],
+.reduced-transparency [class*="bg-opacity"],
+.reduced-transparency [class*="bg-white/"],
+.reduced-transparency [class*="bg-black/"] {
+  backdrop-filter: none !important;
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+/* Enhanced focus indicators */
+.enhanced-focus *:focus-visible {
+  outline: 3px solid hsl(var(--ring)) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring)) !important;
+}
+
+.enhanced-focus button:focus-visible,
+.enhanced-focus input:focus-visible,
+.enhanced-focus textarea:focus-visible,
+.enhanced-focus select:focus-visible {
+  outline: 3px solid hsl(var(--ring)) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 5px hsl(var(--ring)) !important;
+}
+
+/* Screen reader optimizations */
+.screen-reader-optimized .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip links */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 1000;
+  font-size: 14px;
+  font-weight: 600;
+  transition: top 0.3s;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* ARIA live region for announcements */
+[aria-live] {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

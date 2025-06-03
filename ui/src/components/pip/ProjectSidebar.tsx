@@ -59,6 +59,7 @@ interface ProjectSidebarProps {
   isCollapsed?: boolean;
   onToggle?: () => void;
   className?: string;
+  isMobile?: boolean;
 }
 
 const defaultProject: ProjectInfo = {
@@ -118,6 +119,7 @@ export function ProjectSidebar({
   isCollapsed = false,
   onToggle,
   className,
+  isMobile = false,
 }: ProjectSidebarProps) {
   const [activeSection, setActiveSection] = useState<
     "overview" | "agents" | "activity" | "analytics"

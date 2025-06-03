@@ -50,6 +50,7 @@ interface MessageBubbleProps {
   isGrouped?: boolean; // New prop for message grouping
   isLastInGroup?: boolean; // New prop for bubble tails
   showAgentTyping?: boolean; // New prop for typing indicators
+  isMobile?: boolean; // Responsive prop
 }
 
 export function MessageBubble({
@@ -62,6 +63,7 @@ export function MessageBubble({
   isGrouped = false,
   isLastInGroup = true,
   showAgentTyping = false,
+  isMobile = false,
 }: MessageBubbleProps) {
   const [localShowMetadata, setLocalShowMetadata] = useState(false);
   const isUser = message.type === "user";

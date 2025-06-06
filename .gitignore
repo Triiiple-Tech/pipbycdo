@@ -15,6 +15,9 @@ env/
 # Env files
 .env
 
+# Local storage (contains runtime data and potential sensitive info)
+backend/local_storage/
+
 # macOS
 .DS_Store
 

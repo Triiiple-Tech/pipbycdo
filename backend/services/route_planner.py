@@ -1,7 +1,7 @@
 # backend/services/route_planner.py
 from typing import Dict, List, Optional, Any, Tuple, Callable
-from app.schemas import AppState
-from services.intent_classifier import intent_classifier
+from backend.app.schemas import AppState
+from backend.services.intent_classifier import intent_classifier
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class RoutePlanner:
     def __init__(self):
         self.name = "route_planner"
     
-    def plan_route(self, state: AppState, available_agents: Dict[str, Tuple[Callable, Optional[str]]]) -> Dict[str, Any]:
+    def plan_route(self, state: AppState, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
         """
         Plan the optimal route through agents based on current state and user intent.
         
@@ -50,7 +50,7 @@ class RoutePlanner:
     
     def _analyze_state_capabilities(self, state: AppState) -> Dict[str, Any]:
         """Analyze what data is already available and what processing can be skipped."""
-        capabilities = {
+        capabilities: Dict[str, Any] = {
             "can_skip_file_reader": bool(state.processed_files_content),
             "can_skip_trade_mapper": bool(state.trade_mapping),
             "can_skip_scope": bool(state.scope_items),
@@ -65,7 +65,7 @@ class RoutePlanner:
     
     def _assess_data_freshness(self, state: AppState) -> Dict[str, str]:
         """Assess whether existing data is fresh enough to reuse."""
-        freshness = {}
+        freshness: Dict[str, str] = {}
         
         # Check if we have timestamps or can infer freshness
         if state.updated_at and state.created_at:
@@ -96,7 +96,7 @@ class RoutePlanner:
     
     def _identify_processing_gaps(self, state: AppState) -> List[str]:
         """Identify gaps in the processing pipeline that need to be filled."""
-        gaps = []
+        gaps: List[str] = []
         
         # Check for logical gaps in the pipeline
         if state.files and not state.processed_files_content:
@@ -117,7 +117,7 @@ class RoutePlanner:
         return gaps
     
     def _create_route_plan(self, intent_result: Dict[str, Any], state_analysis: Dict[str, Any], 
-                          available_agents: Dict[str, Tuple[Callable, Optional[str]]]) -> Dict[str, Any]:
+                          available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
         """Create initial route plan based on intent and state analysis."""
         
         primary_intent = intent_result.get("primary_intent", "full_estimation")
@@ -132,7 +132,7 @@ class RoutePlanner:
         # Filter to only include available agents
         available_sequence = [agent for agent in base_sequence if agent in available_agents]
         
-        route_plan = {
+        route_plan: Dict[str, Any] = {
             "intent": primary_intent,
             "confidence": confidence,
             "base_sequence": available_sequence,
@@ -155,15 +155,15 @@ class RoutePlanner:
         return route_plan
     
     def _optimize_route(self, route_plan: Dict[str, Any], state: AppState, 
-                       available_agents: Dict[str, Tuple[Callable, Optional[str]]]) -> Dict[str, Any]:
+                       available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
         """Optimize the route for efficiency while maintaining data integrity."""
         
         base_sequence = route_plan["base_sequence"]
         skip_candidates = route_plan["skip_candidates"]
         state_analysis = route_plan["state_analysis"]
         
-        optimized_sequence = []
-        skipped_agents = []
+        optimized_sequence: List[str] = []
+        skipped_agents: List[Dict[str, Any]] = []
         
         for agent_name in base_sequence:
             # Check if this agent should be skipped
@@ -232,7 +232,7 @@ class RoutePlanner:
         
         return False
     
-    def _ensure_dependencies(self, sequence: List[str], available_agents: Dict[str, Tuple[Callable, Optional[str]]], 
+    def _ensure_dependencies(self, sequence: List[str], available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]], 
                            state: AppState) -> List[str]:
         """Ensure that required dependencies are included in the sequence."""
         
@@ -246,7 +246,7 @@ class RoutePlanner:
         }
         
         # Check each agent in sequence and add missing dependencies
-        final_sequence = []
+        final_sequence: List[str] = []
         
         for agent_name in sequence:
             # Add dependencies if needed
@@ -265,7 +265,7 @@ class RoutePlanner:
     
     def _has_dependency_data(self, agent_name: str, state: AppState) -> bool:
         """Check if state has the data that an agent would produce."""
-        data_mapping = {
+        data_mapping: Dict[str, Any] = {
             "file_reader": state.processed_files_content,
             "trade_mapper": state.trade_mapping,
             "scope": state.scope_items,
@@ -275,7 +275,7 @@ class RoutePlanner:
         
         return bool(data_mapping.get(agent_name))
     
-    def _fallback_route_plan(self, available_agents: Dict[str, Tuple[Callable, Optional[str]]]) -> Dict[str, Any]:
+    def _fallback_route_plan(self, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
         """Fallback route plan when classification fails."""
         logger.warning("Using fallback route planning")
         

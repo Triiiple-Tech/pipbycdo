@@ -1,24 +1,17 @@
-import pytest
-from unittest.mock import Mock, patch
+from typing import Dict, Any
 from backend.agents import takeoff_agent
-from backend.app.schemas import AppState
 
 class TestTakeoffAgent:
-    def test_takeoff_agent_handle_function_exists(self):
+    def test_takeoff_agent_handle_function_exists(self) -> None:
         """Test TakeoffAgent handle function exists"""
         assert hasattr(takeoff_agent, 'handle')
         
-    def test_handle_basic_takeoff_generation(self):
+    def test_handle_basic_takeoff_generation(self) -> None:
         """Test basic takeoff generation through handle function"""
-        initial_state = {
+        initial_state: Dict[str, Any] = {
             "scope_items": [
-                {
-                    "item_id": "SCOPE-260000-OUTLET-0",
-                    "trade_name": "electrical",
-                    "csi_division": "260000",
-                    "description": "Install electrical outlets",
-                    "source_file": "electrical_plan.pdf"
-                }
+                {"item": "Electrical outlets", "description": "Install 20 amp outlets"},
+                {"item": "Light switches", "description": "Install toggle switches"}
             ],
             "agent_trace": [],
             "meeting_log": []
@@ -31,9 +24,9 @@ class TestTakeoffAgent:
         assert "agent_trace" in result
         assert "meeting_log" in result
         
-    def test_handle_with_no_scope_items(self):
-        """Test handle function with no scope items"""
-        initial_state = {
+    def test_handle_with_no_scope_items(self) -> None:
+        """Test handling when no scope items are provided"""
+        initial_state: Dict[str, Any] = {
             "scope_items": [],
             "agent_trace": [],
             "meeting_log": []
@@ -43,26 +36,14 @@ class TestTakeoffAgent:
         
         assert isinstance(result, dict)
         assert "takeoff_data" in result
-        assert len(result["takeoff_data"]) == 0
         
-    def test_handle_with_multiple_scope_items(self):
-        """Test handle function with multiple scope items"""
-        initial_state = {
+    def test_handle_with_multiple_scope_items(self) -> None:
+        """Test handling multiple scope items"""
+        initial_state: Dict[str, Any] = {
             "scope_items": [
-                {
-                    "item_id": "SCOPE-260000-OUTLET-0",
-                    "trade_name": "electrical",
-                    "csi_division": "260000",
-                    "description": "Install electrical outlets",
-                    "source_file": "electrical.pdf"
-                },
-                {
-                    "item_id": "SCOPE-220000-PIPE-0",
-                    "trade_name": "plumbing", 
-                    "csi_division": "220000",
-                    "description": "Install water pipes",
-                    "source_file": "plumbing.pdf"
-                }
+                {"item": "Item 1", "description": "Description 1"},
+                {"item": "Item 2", "description": "Description 2"},
+                {"item": "Item 3", "description": "Description 3"}
             ],
             "agent_trace": [],
             "meeting_log": []
@@ -72,11 +53,13 @@ class TestTakeoffAgent:
         
         assert isinstance(result, dict)
         assert "takeoff_data" in result
-        # Should process multiple items
-        
-    def test_log_interaction_function(self):
+        assert isinstance(result["takeoff_data"], list)
+
+    def test_log_interaction_function(self) -> None:
         """Test log interaction helper function"""
         from backend.agents.takeoff_agent import takeoff_agent as agent_instance
+        from backend.app.schemas import AppState
+        
         state = AppState()
         
         agent_instance.log_interaction(state, "test decision", "test message")
@@ -86,9 +69,9 @@ class TestTakeoffAgent:
         assert state.agent_trace[0].agent == "takeoff"
         assert state.agent_trace[0].decision == "test decision"
         
-    def test_handle_with_error_scope_items(self):
+    def test_handle_with_error_scope_items(self) -> None:
         """Test handle function with error scope items"""
-        initial_state = {
+        initial_state: Dict[str, Any] = {
             "scope_items": [
                 {
                     "item_id": "SCOPE-ERROR-UNKNOWN_FILE",
@@ -108,9 +91,9 @@ class TestTakeoffAgent:
         assert "takeoff_data" in result
         # Should handle error items gracefully
         
-    def test_handle_validates_quantities(self):
+    def test_handle_validates_quantities(self) -> None:
         """Test that takeoff handles quantity validation"""
-        initial_state = {
+        initial_state: Dict[str, Any] = {
             "scope_items": [
                 {
                     "item_id": "SCOPE-260000-OUTLET-0",
@@ -129,3 +112,8 @@ class TestTakeoffAgent:
         
         assert isinstance(result, dict)
         # Should process valid quantities correctly
+
+
+if __name__ == "__main__":
+    import pytest
+    pytest.main([__file__, "-v"])

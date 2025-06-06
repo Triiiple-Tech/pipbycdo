@@ -1,23 +1,25 @@
 # pipbycdo/backend/agents/manager_agent.py
-from app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
-from agents.base_agent import BaseAgent
-from agents.file_reader_agent import handle as file_reader_handle
-from agents.trade_mapper_agent import handle as trade_mapper_handle
-from agents.scope_agent import handle as scope_handle
-from agents.takeoff_agent import handle as takeoff_handle
-from agents.estimator_agent import handle as estimator_handle
-from agents.exporter_agent import handle as exporter_handle
-from services.route_planner import route_planner
-from datetime import datetime, timezone
-from typing import Optional, Callable, Dict, List, Tuple, Any
+from backend.app.schemas import AppState
+from backend.agents.base_agent import BaseAgent
+from backend.agents.file_reader_agent import handle as file_reader_handle
+from backend.agents.trade_mapper_agent import handle as trade_mapper_handle  # type: ignore
+from backend.agents.scope_agent import handle as scope_handle
+from backend.agents.takeoff_agent import handle as takeoff_handle  # type: ignore
+from backend.agents.estimator_agent import handle as estimator_handle
+from backend.agents.exporter_agent import handle as exporter_handle
+from backend.services.route_planner import route_planner
+from typing import Optional, Callable, Dict, List, Tuple, Any, cast
 import logging
+
+# Type alias for agent handler functions
+AgentHandler = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Define the agent pipeline structure
 # Each entry is a tuple: (agent_name, agent_handler_function, required_input_field_in_state)
-AGENT_PIPELINE: List[Tuple[str, Callable[[dict], dict], Optional[str]]] = [
+AGENT_PIPELINE: List[Tuple[str, Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]] = [
     ("file_reader", file_reader_handle, "files"), # File reader depends on initial files
     ("trade_mapper", trade_mapper_handle, "processed_files_content"), # Depends on file reader output
     ("scope", scope_handle, "trade_mapping"),          # Depends on trade mapper output
@@ -34,16 +36,16 @@ class ManagerAgent(BaseAgent):
     """
     
     def __init__(self):
+        """Initialize the Manager Agent with available agents configuration."""
         super().__init__("manager")
-        
         # Define available agents with their handlers and required fields
-        self.available_agents = {
-            "file_reader": (file_reader_handle, "files"),
-            "trade_mapper": (trade_mapper_handle, "processed_files_content"),
-            "scope": (scope_handle, "trade_mapping"),
-            "takeoff": (takeoff_handle, "scope_items"),
-            "estimator": (estimator_handle, "takeoff_data"),
-            "exporter": (exporter_handle, "estimate")
+        self.available_agents: Dict[str, Tuple[AgentHandler, Optional[str]]] = {
+            "file_reader": (cast(AgentHandler, file_reader_handle), "files"),
+            "trade_mapper": (cast(AgentHandler, trade_mapper_handle), "processed_files_content"),
+            "scope": (cast(AgentHandler, scope_handle), "trade_mapping"),
+            "takeoff": (cast(AgentHandler, takeoff_handle), "scope_items"),
+            "estimator": (cast(AgentHandler, estimator_handle), "takeoff_data"),
+            "exporter": (cast(AgentHandler, exporter_handle), "estimate")
         }
     
     def process(self, state: AppState) -> AppState:
@@ -56,11 +58,7 @@ class ManagerAgent(BaseAgent):
         
         try:
             # Step 1: Plan optimal route using enhanced routing
-            # Convert available_agents to match expected type
-            agents_for_routing: Dict[str, Tuple[Callable, Optional[str]]] = {
-                name: (handler, field) for name, (handler, field) in self.available_agents.items()
-            }
-            route_plan = route_planner.plan_route(state, agents_for_routing)
+            route_plan = route_planner.plan_route(state, self.available_agents)  # type: ignore
             
             # Log routing decision
             self._log_routing_decision(state, route_plan)
@@ -68,7 +66,7 @@ class ManagerAgent(BaseAgent):
             # Step 2: Execute planned agent sequence
             current_state_dict = state.model_dump()
             
-            for agent_name in route_plan["sequence"]:
+            for agent_name in route_plan.get("sequence", []):
                 if agent_name not in self.available_agents:
                     self.log_interaction(state, f"Agent unavailable: {agent_name}", 
                                        f"Skipping {agent_name}: not in available agents", level="warning")
@@ -113,18 +111,11 @@ class ManagerAgent(BaseAgent):
         
         return state
     
-    def _determine_agent_sequence(self, state: AppState) -> List[Tuple[str, Callable[[dict], dict], Optional[str]]]:
+    def _determine_agent_sequence(self, state: AppState) -> List[Tuple[str, Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]]:
         """
         Determine which agents to run based on the current state and intent.
         This implements the smart routing logic.
         """
-        # For now, return the full pipeline
-        # Future: Implement intent detection and smart routing
-        # Examples:
-        # - If only query (no files), might skip file_reader
-        # - If user asks for specific export format, might run only exporter
-        # - If state already has estimate, might skip estimation pipeline
-        
         sequence = []
         
         # Basic intent detection
@@ -152,31 +143,50 @@ class ManagerAgent(BaseAgent):
         # Type cast to satisfy type checker
         return sequence  # type: ignore
     
-    def _check_agent_readiness(self, state_dict: Dict, agent_name: str, required_field: Optional[str]) -> bool:
+    def _check_agent_readiness(self, state_dict: Dict[str, Any], required_field: Optional[str]) -> bool:
         """
         Check if an agent has the required inputs to run.
         """
-        if not required_field:
+        if required_field is None:
             return True
         
         if required_field not in state_dict:
             return False
         
         value = state_dict[required_field]
-        
-        # Check if the value is meaningful
         if value is None:
             return False
-        if isinstance(value, (list, dict)) and len(value) == 0:
+        if isinstance(value, (list, dict)) and len(value) == 0:  # type: ignore
             return False
         if isinstance(value, str) and value.strip() == "":
             return False
         
         return True
     
+    def _check_agent_readiness_enhanced(self, state_dict: Dict[str, Any], agent_name: str, 
+                                       required_field: Optional[str], route_plan: Dict[str, Any]) -> bool:
+        """Enhanced agent readiness check with route plan context."""
+        # Basic readiness check
+        if not self._check_agent_readiness(state_dict, required_field):
+            warning_msg = f"Agent {agent_name} not ready: required field '{required_field}' missing or empty"
+            state = AppState(**state_dict)
+            self.log_interaction(state, f"Skipping {agent_name}", warning_msg)
+            return False
+        
+        # Additional checks based on route plan context
+        # Check if agent was meant to be skipped but included due to dependencies
+        skipped_agents = route_plan.get("skipped_agents", [])
+        for skipped_info in skipped_agents:
+            if skipped_info.get("agent") == agent_name:
+                state = AppState(**state_dict)
+                self.log_interaction(state, f"Running {agent_name} despite skip candidate", 
+                                   f"Agent included due to dependencies: {skipped_info.get('reason', 'unknown')}")
+        
+        return True
+    
     def _is_critical_error(self, error_message: str) -> bool:
         """
-        Determine if an error is critical enough to stop the pipeline.
+        Determine if an error is critical and should stop the pipeline.
         """
         if not error_message:
             return False
@@ -192,53 +202,8 @@ class ManagerAgent(BaseAgent):
         error_lower = error_message.lower()
         return any(keyword in error_lower for keyword in critical_keywords)
     
-    def _log_routing_decision(self, state: AppState, route_plan: Dict[str, Any]) -> None:
-        """Log the routing decision for transparency and debugging."""
-        intent = route_plan.get("intent", "unknown")
-        confidence = route_plan.get("confidence", 0)
-        sequence = route_plan.get("sequence", [])
-        skipped = route_plan.get("skipped_agents", [])
-        
-        decision_msg = (f"Intent: {intent} (confidence: {confidence:.2f}), "
-                       f"Sequence: {sequence}")
-        
-        if skipped:
-            skipped_names = [s.get("agent", "unknown") for s in skipped]
-            decision_msg += f", Skipped: {skipped_names}"
-        
-        self.log_interaction(state, "Enhanced routing decision", decision_msg)
-        
-        # Log reasoning if available
-        if route_plan.get("reasoning"):
-            self.log_interaction(state, "Routing reasoning", route_plan["reasoning"])
-    
-    def _check_agent_readiness_enhanced(self, state_dict: Dict, agent_name: str, 
-                                       required_field: Optional[str], route_plan: Dict[str, Any]) -> bool:
-        """Enhanced readiness check with route plan context."""
-        # Basic readiness check
-        if not self._check_agent_readiness(state_dict, agent_name, required_field):
-            warning_msg = f"Skipping {agent_name}: required input '{required_field}' not available"
-            state = AppState(**state_dict)
-            self.log_interaction(state, f"Skipping {agent_name}", warning_msg)
-            return False
-        
-        # Additional checks based on route plan context
-        state_analysis = route_plan.get("state_analysis", {})
-        
-        # Check if agent was meant to be skipped but included due to dependencies
-        for skipped_info in route_plan.get("skipped_agents", []):
-            if skipped_info.get("agent") == agent_name:
-                state = AppState(**state_dict)
-                self.log_interaction(state, f"Running {agent_name} despite skip candidate", 
-                                   f"Agent included due to dependencies: {skipped_info.get('reason', 'unknown')}")
-        
-        return True
-    
     def _handle_agent_error(self, state: AppState, agent_name: str, route_plan: Dict[str, Any]) -> bool:
-        """Handle agent errors with route plan context. Returns True to continue, False to stop."""
-        error_msg = f"Error from {agent_name}: {state.error}"
-        self.log_interaction(state, f"{agent_name} error", error_msg, level="error")
-        
+        """Handle agent errors. Returns True to continue, False to stop."""
         # Check if this is a critical error
         if state.error and self._is_critical_error(state.error):
             self.log_interaction(state, "Pipeline stopped", 
@@ -295,6 +260,26 @@ class ManagerAgent(BaseAgent):
         except ValueError:
             return []
     
+    def _log_routing_decision(self, state: AppState, route_plan: Dict[str, Any]) -> None:
+        """Log the routing decision for transparency and debugging."""
+        intent = route_plan.get("intent", "unknown")
+        confidence = route_plan.get("confidence", 0)
+        sequence = route_plan.get("sequence", [])
+        skipped = route_plan.get("skipped_agents", [])
+        
+        decision_msg = (f"Intent: {intent} (confidence: {confidence:.2f}), "
+                       f"Sequence: {sequence}")
+        
+        if skipped:
+            skipped_names = [s.get("agent", "unknown") for s in skipped]
+            decision_msg += f", Skipped: {skipped_names}"
+        
+        self.log_interaction(state, "Enhanced routing decision", decision_msg)
+        
+        # Log reasoning if available
+        if route_plan.get("reasoning"):
+            self.log_interaction(state, "Routing reasoning", route_plan["reasoning"])
+    
     def _fallback_processing(self, state: AppState) -> AppState:
         """Fallback to basic processing when enhanced routing fails."""
         self.log_interaction(state, "Using fallback processing", 
@@ -305,11 +290,14 @@ class ManagerAgent(BaseAgent):
         current_state_dict = state.model_dump()
         
         for agent_name, agent_handle, required_input_field in agents_to_run:
-            if not self._check_agent_readiness(current_state_dict, agent_name, required_input_field):
+            if not self._check_agent_readiness(current_state_dict, required_input_field):
                 continue
             
             try:
+                # Execute the agent
                 current_state_dict = agent_handle(current_state_dict)
+                
+                # Update state for continued processing
                 state = AppState(**current_state_dict)
                 
                 if state.error and self._is_critical_error(state.error):
@@ -320,11 +308,14 @@ class ManagerAgent(BaseAgent):
         
         return state
 
+
 # Create singleton instance
 _manager_agent = ManagerAgent()
 
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Legacy entry point for backward compatibility.
     """
-    return _manager_agent.handle(state_dict)
+    state = AppState(**state_dict)
+    result_state = _manager_agent.process(state)
+    return result_state.model_dump()

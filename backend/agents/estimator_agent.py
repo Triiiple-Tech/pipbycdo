@@ -1,8 +1,8 @@
-from app.schemas import AppState, EstimateItem
-from agents.base_agent import BaseAgent
+from backend.app.schemas import AppState, EstimateItem
+from backend.agents.base_agent import BaseAgent
 import json
 import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 class EstimatorAgent(BaseAgent):
@@ -304,19 +304,49 @@ Create specific, itemized estimates with quantities, units, and pricing. Focus o
             
             if response:
                 import json
-                estimates_data = json.loads(response)
+                
+                # Clean response of markdown code blocks (same as _get_llm_pricing)
+                clean_response = response.strip()
+                if clean_response.startswith("```json"):
+                    clean_response = clean_response[7:]  # Remove ```json
+                if clean_response.startswith("```"):
+                    clean_response = clean_response[3:]  # Remove ```
+                if clean_response.endswith("```"):
+                    clean_response = clean_response[:-3]  # Remove trailing ```
+                clean_response = clean_response.strip()
+                
+                estimates_data = json.loads(clean_response)
                 
                 # Convert to EstimateItem objects
-                new_estimate_items = []
+                new_estimate_items: List[EstimateItem] = []
                 for item_data in estimates_data:
                     if isinstance(item_data, dict) and all(key in item_data for key in ["item", "qty", "unit", "unit_price", "total"]):
+                        # Cast to dict for proper type checking
+                        item_dict = item_data  # type: ignore
+                        
+                        # Type-safe dictionary access with defaults and explicit casting
+                        item_val = item_dict.get("item", "Unknown Item")  # type: ignore
+                        item_str = str(item_val) if item_val is not None else "Unknown Item"  # type: ignore
+                        
+                        qty_val = item_dict.get("qty", 0)  # type: ignore
+                        qty_float = float(qty_val) if qty_val is not None else 0.0  # type: ignore
+                        
+                        unit_val = item_dict.get("unit", "EA")  # type: ignore
+                        unit_str = str(unit_val) if unit_val is not None else "EA"  # type: ignore
+                        
+                        unit_price_val = item_dict.get("unit_price", 0)  # type: ignore
+                        unit_price_float = float(unit_price_val) if unit_price_val is not None else 0.0  # type: ignore
+                        
+                        total_val = item_dict.get("total", 0)  # type: ignore
+                        total_float = float(total_val) if total_val is not None else 0.0  # type: ignore
+                        
                         estimate_item = EstimateItem(
-                            item=item_data["item"],
-                            description=item_data["item"],
-                            qty=float(item_data["qty"]),
-                            unit=item_data["unit"],
-                            unit_price=float(item_data["unit_price"]),
-                            total=float(item_data["total"]),
+                            item=item_str,
+                            description=item_str,
+                            qty=qty_float,
+                            unit=unit_str,
+                            unit_price=unit_price_float,
+                            total=total_float,
                             csi_division="000000",  # General
                             notes="Generated from content analysis"
                         )
@@ -326,26 +356,22 @@ Create specific, itemized estimates with quantities, units, and pricing. Focus o
                 
                 self.log_interaction(state, "Estimation from content complete", 
                                    f"Generated {len(new_estimate_items)} estimate items from content analysis")
-                
                 return state
                 
         except Exception as e:
-            self.log_interaction(state, "Content estimation failed", 
-                               f"Failed to generate estimates from content: {str(e)}", level="error")
-            state.error = f"Failed to generate estimates from content: {str(e)}"
-            return state
+            self.log_interaction(state, "Content estimation error", 
+                               f"Error generating estimates from content: {str(e)}", level="error")
         
         # Fallback - no estimates generated
         self.log_interaction(state, "No estimates generated", 
                            "Unable to generate estimates from content", level="error")
         return state
 
-
 # Create instance for backward compatibility
 estimator_agent = EstimatorAgent()
 
 # Legacy handle function for existing code
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function that uses the new EstimatorAgent class."""
     return estimator_agent.handle(state_dict)
 

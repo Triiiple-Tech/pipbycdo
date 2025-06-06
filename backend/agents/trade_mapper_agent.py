@@ -1,5 +1,5 @@
-from app.schemas import AppState
-from agents.base_agent import BaseAgent
+from backend.app.schemas import AppState
+from backend.agents.base_agent import BaseAgent
 import re
 from typing import List, Dict, Any
 
@@ -172,15 +172,17 @@ Identify specific trades, provide appropriate CSI division codes, and list relev
                 trades_data = json.loads(response)
                 
                 # Validate and clean the response
-                validated_trades = []
+                validated_trades: List[Dict[str, Any]] = []
                 for trade in trades_data:
                     if isinstance(trade, dict) and "trade_name" in trade and "csi_division" in trade:
-                        validated_trade = {
-                            "trade_name": trade.get("trade_name", "Unknown Trade"),
-                            "csi_division": trade.get("csi_division", "000000"),
-                            "keywords_found": trade.get("keywords_found", []),
-                            "confidence": trade.get("confidence", "medium"),
-                            "description": trade.get("description", ""),
+                        # Type-safe dictionary access
+                        trade_dict = trade  # type: ignore
+                        validated_trade: Dict[str, Any] = {
+                            "trade_name": str(trade_dict.get("trade_name", "Unknown Trade")),  # type: ignore
+                            "csi_division": str(trade_dict.get("csi_division", "000000")),  # type: ignore
+                            "keywords_found": list(trade_dict.get("keywords_found", [])),  # type: ignore
+                            "confidence": str(trade_dict.get("confidence", "medium")),  # type: ignore
+                            "description": str(trade_dict.get("description", "")),  # type: ignore
                             "source_file": filename,
                             "mapping_method": "LLM"
                         }
@@ -198,11 +200,11 @@ Identify specific trades, provide appropriate CSI division codes, and list relev
         """
         Fallback method: Map content to trades using keyword spotting.
         """
-        mapped_trades = []
+        mapped_trades: List[Dict[str, Any]] = []  # type: ignore
         content_lower = content.lower()
 
         for csi_code, keywords in self.CSI_DIVISIONS_KEYWORDS.items():
-            found_keywords = []
+            found_keywords: List[str] = []  # type: ignore
             for keyword in keywords:
                 # Use regex to find whole words to avoid partial matches
                 if re.search(r'\b' + re.escape(keyword.lower()) + r'\b', content_lower):
@@ -238,7 +240,9 @@ trade_mapper_agent = TradeMapperAgent()
 # Add the missing module-level functions and constants that tests expect
 def map_content_to_trades(content: str) -> List[Dict[str, Any]]:
     """Module-level function for mapping content to trades."""
-    return trade_mapper_agent._map_content_to_trades_keywords(content, "test_file.txt")
+    # Create a temporary instance to access the method
+    temp_agent = TradeMapperAgent()
+    return temp_agent._map_content_to_trades_keywords(content, "test_file.txt")  # type: ignore
 
 def log_interaction(state: AppState, decision: str, message: str, level: str = "info") -> None:
     """Module-level function for logging interactions."""
@@ -248,7 +252,7 @@ def log_interaction(state: AppState, decision: str, message: str, level: str = "
 CSI_DIVISIONS_KEYWORDS = TradeMapperAgent.CSI_DIVISIONS_KEYWORDS
 
 # Legacy handle function for existing code
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function that uses the new TradeMapperAgent class."""
     return trade_mapper_agent.handle(state_dict)
 

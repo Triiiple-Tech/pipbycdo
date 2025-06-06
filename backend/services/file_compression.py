@@ -6,12 +6,11 @@ Supports compression of PDF, DOCX, XLSX, and image files to reduce file sizes.
 
 import io
 import logging
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Any, Union, Callable
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 import zipfile
 import tempfile
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +21,15 @@ class FileCompressionService:
     """
     
     # Compression quality settings
-    QUALITY_SETTINGS = {
+    QUALITY_SETTINGS: Dict[str, Dict[str, Union[int, str]]] = {
         "high": {"image_quality": 85, "pdf_quality": "high"},
         "medium": {"image_quality": 70, "pdf_quality": "medium"},
         "low": {"image_quality": 55, "pdf_quality": "low"}
     }
     
     def __init__(self):
-        self.supported_types = {
+        # Define the type for compress method: (bytes, str, Dict[str, Union[int, str]]) -> bytes
+        self.supported_types: Dict[str, Callable[[bytes, str, Dict[str, Union[int, str]]], bytes]] = {
             'application/pdf': self._compress_pdf,
             'image/jpeg': self._compress_image,
             'image/jpg': self._compress_image,
@@ -112,7 +112,7 @@ class FileCompressionService:
                 "error": str(e)
             }
     
-    def _compress_pdf(self, file_data: bytes, filename: str, quality_settings: Dict) -> bytes:
+    def _compress_pdf(self, file_data: bytes, filename: str, quality_settings: Dict[str, Union[int, str]]) -> bytes:
         """Compress PDF files by optimizing images and removing unnecessary data."""
         try:
             # Read the PDF
@@ -127,7 +127,8 @@ class FileCompressionService:
             
             # Apply compression
             writer.compress_identical_objects()
-            writer.remove_duplication()
+            # Note: remove_duplication() method doesn't exist in pypdf
+            # writer.remove_duplication()  # Removed - not available in current pypdf version
             
             # Write compressed PDF
             output_stream = io.BytesIO()
@@ -140,7 +141,7 @@ class FileCompressionService:
             # Return original if compression fails
             return file_data
     
-    def _compress_image(self, file_data: bytes, filename: str, quality_settings: Dict) -> bytes:
+    def _compress_image(self, file_data: bytes, filename: str, quality_settings: Dict[str, Union[int, str]]) -> bytes:
         """Compress image files by reducing quality and optimizing format."""
         try:
             # Open image
@@ -169,7 +170,7 @@ class FileCompressionService:
             logger.warning(f"Image compression failed for {filename}: {str(e)}")
             return file_data
     
-    def _compress_office_document(self, file_data: bytes, filename: str, quality_settings: Dict) -> bytes:
+    def _compress_office_document(self, file_data: bytes, filename: str, quality_settings: Dict[str, Union[int, str]]) -> bytes:
         """
         Compress Office documents by creating an optimized ZIP archive.
         Office documents are already ZIP files, so we optimize the internal structure.
@@ -204,7 +205,7 @@ class FileCompressionService:
             logger.warning(f"Office document compression failed for {filename}: {str(e)}")
             return file_data
     
-    def _compress_embedded_image(self, image_data: bytes, quality_settings: Dict) -> bytes:
+    def _compress_embedded_image(self, image_data: bytes, quality_settings: Dict[str, Union[int, str]]) -> bytes:
         """Compress images embedded within office documents."""
         try:
             input_stream = io.BytesIO(image_data)

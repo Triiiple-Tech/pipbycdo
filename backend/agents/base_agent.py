@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
-from app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
-from services.utils.state import update_llm_config, log_agent_interaction
-from services.gpt_handler import run_llm
+from backend.app.schemas import AppState, AgentTraceEntry, MeetingLogEntry
+from backend.services.utils.state import update_llm_config
+from backend.services.gpt_handler import run_llm  # type: ignore
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,8 @@ class BaseAgent(ABC):
         Standard entry point for all agents.
         Handles state conversion, LLM configuration, error handling, and logging.
         """
+        state: Optional[AppState] = None
+        
         try:
             # Convert dict to Pydantic model
             state = AppState(**state_dict)
@@ -56,7 +58,7 @@ class BaseAgent(ABC):
             
             # Try to update state with error info
             try:
-                if 'state' in locals():
+                if state is not None:
                     state.error = error_msg
                     state.updated_at = datetime.now(timezone.utc)
                     self.log_interaction(state, "Agent error", error_msg, level="error")
@@ -121,7 +123,7 @@ class BaseAgent(ABC):
         
         try:
             # Use enhanced gpt_handler with fallback support
-            response = run_llm(
+            response: str = run_llm(
                 prompt=prompt,
                 model=state.llm_config.model,
                 system_prompt=system_prompt,
@@ -137,29 +139,32 @@ class BaseAgent(ABC):
             else:
                 error_msg = "Empty response from LLM"
                 self.log_interaction(state, "LLM call failed", error_msg, level="error")
-                return None
-                
         except Exception as e:
             error_msg = f"Error calling LLM: {str(e)}"
             self.log_interaction(state, "LLM call failed", error_msg, level="error")
             return None
-    
-    def validate_required_fields(self, state: AppState, required_fields: list) -> bool:
+            return None
+            self.log_interaction(state, "LLM call failed", error_msg, level="error")
+    def validate_required_fields(self, state: AppState, required_fields: list[str]) -> bool:
         """
         Validate that required fields are present in the state.
         """
-        missing_fields = []
+        missing_fields: list[str] = []
         for field in required_fields:
             if hasattr(state, field):
                 value = getattr(state, field)
-                if value is None or (isinstance(value, (list, dict)) and len(value) == 0):
+                if value is None:
                     missing_fields.append(field)
+                elif isinstance(value, (list, dict)):
+                    # Type-safe check for empty collections
+                    if not value:
+                        missing_fields.append(field)
             else:
                 missing_fields.append(field)
-        
         if missing_fields:
             error_msg = f"Missing required fields: {', '.join(missing_fields)}"
             self.log_interaction(state, "Validation failed", error_msg, level="error")
             return False
         
+        return True
         return True

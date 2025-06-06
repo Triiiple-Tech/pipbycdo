@@ -8,12 +8,11 @@ from fastapi.responses import StreamingResponse
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from enum import Enum
+from pydantic import BaseModel, Field
 import random
 import uuid
 import json
 import io
-import csv
-from io import StringIO
 
 # Define router - note that in production this would be imported from analytics.py
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -34,6 +33,32 @@ class LogLevel(str, Enum):
     error = "error"
     critical = "critical"
 
+# Pydantic Models for Audit Logs
+class AuditLogEntry(BaseModel):
+    id: str
+    timestamp: datetime
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+    agent: str
+    event_type: str = Field(..., pattern="^(file_upload|agent_call|sheet_export|prompt_edit|user_action|system_event)$")
+    event_details: str
+    model_used: Optional[str] = None
+    session_id: Optional[str] = None
+    task_id: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    cost_estimate: Optional[float] = None
+    duration_ms: Optional[int] = None
+    error: Optional[str] = None
+    level: str = Field(default="info", pattern="^(debug|info|warning|error|critical)$")
+
+class AuditLogResponse(BaseModel):
+    logs: List[AuditLogEntry]
+    total_count: int
+    page: int
+    page_size: int
+    filters_applied: Dict[str, Any]
+
 # In-memory storage for audit logs when database is unavailable
 local_audit_logs: List[Dict[str, Any]] = []
 
@@ -44,7 +69,6 @@ def store_audit_log_locally(audit_log: Dict[str, Any]) -> None:
     if len(local_audit_logs) > 1000:
         local_audit_logs.pop(0)  # Remove oldest log
 
-# Mock audit log data generator
 def generate_mock_audit_logs(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -59,7 +83,7 @@ def generate_mock_audit_logs(
     """Generate mock audit log data with filtering"""
     
     # Generate base audit entries
-    audit_entries = []
+    audit_entries: List[Dict[str, Any]] = []
     users = ["alice@acme.com", "bob@acme.com", "charlie@acme.com", "diana@acme.com"]
     agents = ["manager", "file-reader", "trade-mapper", "scope", "takeoff", "estimator", "qa-validator", "exporter"]
     event_types = ["file_upload", "agent_call", "sheet_export", "prompt_edit", "user_action", "system_event"]
@@ -94,7 +118,7 @@ def generate_mock_audit_logs(
         else:  # system_event
             details = f"System {random.choice(['backup completed', 'cache cleared', 'model updated', 'maintenance performed'])}"
         
-        entry = {
+        entry: Dict[str, Any] = {
             "id": f"audit-{str(i+1).zfill(4)}",
             "timestamp": entry_date,
             "user_id": selected_user.split('@')[0],
@@ -198,9 +222,7 @@ async def get_audit_logs(
                 raise HTTPException(status_code=400, detail="Invalid end_date format. Use ISO format.")
         
         # In production, this would query the actual audit logs from database
-        # Here we use mock data
-        import random
-        
+        # Here we use mock data        
         result = generate_mock_audit_logs(
             start_date=parsed_start_date,
             end_date=parsed_end_date,
@@ -232,11 +254,11 @@ async def create_audit_log(
     cost_estimate: Optional[float] = None,
     duration_ms: Optional[int] = None,
     level: LogLevel = LogLevel.info
-):
+) -> Dict[str, Any]:
     """Create a new audit log entry"""
     try:
         # In production, this would insert into the database
-        audit_entry = {
+        audit_entry: Dict[str, Any] = {
             "id": f"audit-manual-{uuid.uuid4().hex[:8]}",
             "timestamp": datetime.now().isoformat(),
             "user_id": user_id,
@@ -258,7 +280,7 @@ async def create_audit_log(
 
 @router.get("/audit-logs/export")
 async def export_audit_logs(
-    format: str = Query("csv", regex="^(csv|json|excel)$"),
+    format: str = Query("csv", pattern="^(csv|json|excel)$"),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     agent: Optional[str] = Query(None),
@@ -278,8 +300,7 @@ async def export_audit_logs(
         if end_date:
             parsed_end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
         
-        # Get all logs (no pagination for export)
-        import random
+        # Get all logs (no pagination for export)        
         logs_data = generate_mock_audit_logs(
             start_date=parsed_start_date,
             end_date=parsed_end_date,
@@ -367,7 +388,7 @@ async def export_audit_logs(
 async def get_audit_logs_stats(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get audit logs statistics and summary"""
     try:
         # Parse dates
@@ -381,7 +402,7 @@ async def get_audit_logs_stats(
         
         # In production, this would query aggregated stats from database
         # For now, use mock data
-        return {
+        stats_data: Dict[str, Any] = {
             "total_entries": 1247,
             "date_range": {
                 "start": (parsed_start_date or datetime.now() - timedelta(days=30)).isoformat(),
@@ -425,6 +446,8 @@ async def get_audit_logs_stats(
                 "success_rate": 97.3
             }
         }
+        
+        return stats_data
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch audit logs stats: {str(e)}")

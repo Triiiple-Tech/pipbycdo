@@ -1,4 +1,3 @@
-import pytest
 import os
 from unittest.mock import patch
 from backend.services.llm_selector import select_llm, AGENT_LLM_CONFIG, DEFAULT_LLM_CONFIG
@@ -7,28 +6,28 @@ from backend.services.llm_selector import select_llm, AGENT_LLM_CONFIG, DEFAULT_
 class TestLLMSelectorRefactored:
 
     @patch.dict(os.environ, {"OPENAI_o4-mini_KEY": "o4_mini_api_key"})
-    def test_select_llm_manager_agent_o4_mini(self):
+    def test_select_llm_manager_agent_o4_mini(self) -> None:
         """Test LLM selection for manager agent, expecting o4-mini and the model-specific API key."""
         result = select_llm("manager", {})
         assert result["model"] == "o4-mini"
         assert result["api_key"] == "o4_mini_api_key"
 
     @patch.dict(os.environ, {"OPENAI_o3_KEY": "o3_api_key"})
-    def test_select_llm_estimator_agent_o3_primary(self):
+    def test_select_llm_estimator_agent_o3_primary(self) -> None:
         """Test LLM selection for estimator agent, expecting o3 and the model-specific API key."""
         result = select_llm("estimator", {})
         assert result["model"] == "o3"
         assert result["api_key"] == "o3_api_key"
 
     @patch.dict(os.environ, {}, clear=True) # Simulate model-specific API key is not set
-    def test_select_llm_estimator_agent_primary_key_missing(self):
+    def test_select_llm_estimator_agent_primary_key_missing(self) -> None:
         """Test estimator uses its preferred model (o3) but api_key is None if API key is missing."""
         result = select_llm("estimator", {})
         assert result["model"] == "o3" # Should still prefer o3 model
         assert result["api_key"] is None
 
     @patch.dict(os.environ, {"OPENAI_4.1-mini_KEY": "mini_api_key_for_default"})
-    def test_select_llm_unknown_agent_uses_default_config(self):
+    def test_select_llm_unknown_agent_uses_default_config(self) -> None:
         """Test LLM selection for an unknown agent, expecting default model and the model-specific API key."""
         result = select_llm("unknown_agent", {})
         assert result["model"] == DEFAULT_LLM_CONFIG["model"]
@@ -36,7 +35,7 @@ class TestLLMSelectorRefactored:
         assert DEFAULT_LLM_CONFIG["api_key_env_vars"][0] == "OPENAI_4.1-mini_KEY" # Verify assumption
 
     @patch.dict(os.environ, clear=True) # No API keys set at all
-    def test_select_llm_all_keys_missing_returns_none_for_api_key(self):
+    def test_select_llm_all_keys_missing_returns_none_for_api_key(self) -> None:
         """Test LLM selection returns None for api_key when model-specific API keys are not set."""
         # Manager
         result_manager = select_llm("manager", {})
@@ -53,7 +52,7 @@ class TestLLMSelectorRefactored:
         assert result_unknown["model"] == DEFAULT_LLM_CONFIG["model"]
         assert result_unknown["api_key"] is None
 
-    def test_agent_llm_config_structure_uses_model_specific_keys(self):
+    def test_agent_llm_config_structure_uses_model_specific_keys(self) -> None:
         """Test that AGENT_LLM_CONFIG correctly specifies model-specific API keys for agents."""
         assert "manager" in AGENT_LLM_CONFIG
         assert isinstance(AGENT_LLM_CONFIG["manager"], list)
@@ -79,9 +78,8 @@ class TestLLMSelectorRefactored:
         # Check DEFAULT_LLM_CONFIG uses model-specific key
         assert DEFAULT_LLM_CONFIG["api_key_env_vars"][0] == "OPENAI_4.1-mini_KEY"
 
-
     @patch.dict(os.environ, {"OPENAI_o4-mini_KEY": "o4_mini_key_for_state_test"})
-    def test_select_llm_with_state_param_does_not_alter_logic(self):
+    def test_select_llm_with_state_param_does_not_alter_logic(self) -> None:
         """Test that the state parameter, while accepted, doesn't change current selection logic."""
         mock_state = {"user_preference": "some_other_model"}
         result = select_llm("manager", mock_state)
@@ -89,7 +87,7 @@ class TestLLMSelectorRefactored:
         assert result["api_key"] == "o4_mini_key_for_state_test"
 
     @patch.dict(os.environ, {"OPENAI_4.1-mini_KEY": "mini_key_to_rule_them_all"})
-    def test_default_llm_config_usage_for_unlisted_agent(self):
+    def test_default_llm_config_usage_for_unlisted_agent(self) -> None:
         """Test that DEFAULT_LLM_CONFIG is used correctly for an agent not in AGENT_LLM_CONFIG."""
         result = select_llm("some_new_agent_not_in_config", {})
         assert result["model"] == DEFAULT_LLM_CONFIG["model"]

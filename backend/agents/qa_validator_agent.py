@@ -1,5 +1,5 @@
-from agents.base_agent import BaseAgent
-from app.schemas import AppState
+from backend.agents.base_agent import BaseAgent
+from backend.app.schemas import AppState
 import logging
 import json
 from typing import Any, Dict, List, Optional
@@ -63,14 +63,14 @@ class QAValidatorAgent(BaseAgent):
     
     def _validate_estimate_data(self, state: AppState) -> List[Dict[str, Any]]:
         """Validate estimate data for common issues."""
-        findings = []
+        findings: List[Dict[str, Any]] = []
         
         if not state.estimate:
             return findings
         
         for item in state.estimate:
-            # Check for invalid totals
-            if item.total is None or item.total < 0:
+            # Check for invalid totals - since total is float, check for negative values only
+            if item.total < 0:
                 findings.append({
                     "item_id": item.item,
                     "finding_type": "Invalid Estimate Total",
@@ -122,7 +122,7 @@ class QAValidatorAgent(BaseAgent):
     
     def _validate_takeoff_data(self, state: AppState) -> List[Dict[str, Any]]:
         """Validate takeoff data for common issues."""
-        findings = []
+        findings: List[Dict[str, Any]] = []
         
         if not state.takeoff_data:
             return findings
@@ -165,7 +165,7 @@ class QAValidatorAgent(BaseAgent):
     
     def _validate_scope_items(self, state: AppState) -> List[Dict[str, Any]]:
         """Validate scope items for common issues."""
-        findings = []
+        findings: List[Dict[str, Any]] = []
         
         if not state.scope_items:
             return findings
@@ -198,7 +198,7 @@ class QAValidatorAgent(BaseAgent):
     
     def _validate_file_processing(self, state: AppState) -> List[Dict[str, Any]]:
         """Validate file processing results."""
-        findings = []
+        findings: List[Dict[str, Any]] = []
         
         if not state.processed_files_content:
             return findings
@@ -290,17 +290,18 @@ Identify any QA issues in the requested JSON format."""
                     return None
                 
                 # Add source information to findings
-                for finding in llm_findings:
-                    finding["agent_source"] = "qa_validator_llm"
-                    # Ensure required fields exist
-                    if "severity" not in finding:
-                        finding["severity"] = "warning"
-                    if "item_id" not in finding:
-                        finding["item_id"] = "GENERAL"
+                for finding in llm_findings:  # type: ignore
+                    if isinstance(finding, dict):
+                        finding["agent_source"] = "qa_validator_llm"
+                        # Ensure required fields exist
+                        if "severity" not in finding:
+                            finding["severity"] = "warning"
+                        if "item_id" not in finding:
+                            finding["item_id"] = "GENERAL"
                 
                 self.log_interaction(state, f"LLM QA analysis successful", 
-                                   f"LLM identified {len(llm_findings)} additional issues")
-                return llm_findings
+                                   f"LLM identified {len(llm_findings)} additional issues")  # type: ignore
+                return llm_findings  # type: ignore
                 
             except json.JSONDecodeError as e:
                 self.log_interaction(state, "LLM QA JSON parse error", 
@@ -317,6 +318,6 @@ Identify any QA issues in the requested JSON format."""
 qa_validator_agent = QAValidatorAgent()
 
 # Backward compatibility function
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function for backward compatibility."""
     return qa_validator_agent.handle(state_dict)

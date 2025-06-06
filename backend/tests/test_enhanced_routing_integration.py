@@ -3,20 +3,21 @@ Integration test for the enhanced routing system.
 This test validates the complete flow from intent classification through route planning.
 """
 import pytest
-from unittest.mock import patch
+from typing import Any, Dict, Callable, Tuple, Optional
+from unittest.mock import patch, MagicMock
 from backend.services.intent_classifier import intent_classifier
 from backend.services.route_planner import route_planner
 from backend.app.schemas import AppState, File, EstimateItem
 
 
-def create_mock_agent():
+def create_mock_agent() -> Callable[[Dict[str, Any]], Dict[str, Any]]:
     """Create a proper mock agent function for testing."""
-    def mock_agent_fn(state):
+    def mock_agent_fn(state: Dict[str, Any]) -> Dict[str, Any]:
         return state
     return mock_agent_fn
 
 
-def dummy_agent(state):
+def dummy_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Simple dummy agent for testing."""
     return state
 
@@ -25,7 +26,7 @@ class TestEnhancedRoutingIntegration:
     """Test the complete enhanced routing system integration."""
 
     @patch('backend.services.intent_classifier.run_llm')
-    def test_full_estimation_workflow(self, mock_llm):
+    def test_full_estimation_workflow(self, mock_llm: MagicMock) -> None:
         """Test complete workflow for full estimation intent."""
         # Mock LLM response for intent classification
         mock_llm.return_value = '{"primary_intent": "full_estimation", "confidence": 0.95, "reasoning": "User uploaded files and explicitly requested estimation"}'
@@ -44,7 +45,7 @@ class TestEnhancedRoutingIntegration:
         assert intent_result["primary_intent"] == "full_estimation"
         assert intent_result["confidence"] >= 0.9
             
-        available_agents = {
+        available_agents: Dict[str, Tuple[Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]] = {
             "file_reader": (create_mock_agent(), "processed_files_content"),
             "trade_mapper": (create_mock_agent(), "trade_mapping"), 
             "scope": (create_mock_agent(), "scope_items"),
@@ -61,7 +62,7 @@ class TestEnhancedRoutingIntegration:
         assert "estimator" in route_result["sequence"]
 
     @patch('backend.services.intent_classifier.run_llm')
-    def test_export_existing_workflow(self, mock_llm):
+    def test_export_existing_workflow(self, mock_llm: MagicMock) -> None:
         """Test workflow for exporting existing estimate."""
         # Mock LLM response for export intent
         mock_llm.return_value = '{"primary_intent": "export_existing", "confidence": 0.92, "reasoning": "User has existing estimate and wants export functionality"}'
@@ -79,7 +80,7 @@ class TestEnhancedRoutingIntegration:
         assert intent_result["primary_intent"] == "export_existing"
         
         # Test with minimal agents
-        available_agents = {
+        available_agents: Dict[str, Tuple[Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]] = {
             "exporter": (create_mock_agent(), None),
             "estimator": (create_mock_agent(), None)
         }
@@ -90,7 +91,7 @@ class TestEnhancedRoutingIntegration:
         assert "exporter" in route_result["sequence"]
 
     @patch('backend.services.intent_classifier.run_llm')
-    def test_smart_skip_optimization(self, mock_llm):
+    def test_smart_skip_optimization(self, mock_llm: MagicMock) -> None:
         """Test that the system intelligently skips unnecessary agents."""
         # Mock LLM response
         mock_llm.return_value = '{"primary_intent": "quick_estimate", "confidence": 0.85, "reasoning": "User wants quick estimate with existing data"}'
@@ -103,7 +104,7 @@ class TestEnhancedRoutingIntegration:
             scope_items=[{"item": "foundation work"}, {"item": "electrical installation"}]
         )
         
-        available_agents = {
+        available_agents: Dict[str, Tuple[Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]] = {
             "file_reader": (dummy_agent, "processed_files_content"),
             "trade_mapper": (dummy_agent, "trade_mapping"),
             "scope": (dummy_agent, "scope_items"),
@@ -122,7 +123,7 @@ class TestEnhancedRoutingIntegration:
         assert "takeoff" in route_result["sequence"]
         assert "estimator" in route_result["sequence"]
 
-    def test_fallback_classification_reliability(self):
+    def test_fallback_classification_reliability(self) -> None:
         """Test that fallback classification works when LLM fails."""
         # Create state that would trigger fallback
         state = AppState(
@@ -140,7 +141,7 @@ class TestEnhancedRoutingIntegration:
             assert result["confidence"] >= 0.6  # Reasonable confidence from rules
 
     @patch('backend.services.intent_classifier.run_llm') 
-    def test_route_optimization_applied(self, mock_llm):
+    def test_route_optimization_applied(self, mock_llm: MagicMock) -> None:
         """Test that route optimization is properly applied."""
         mock_llm.return_value = '{"primary_intent": "full_estimation", "confidence": 0.9, "reasoning": "Full estimation requested"}'
         
@@ -149,7 +150,7 @@ class TestEnhancedRoutingIntegration:
             files=[File(filename="docs.pdf", type="pdf")]
         )
         
-        available_agents = {
+        available_agents: Dict[str, Tuple[Callable[[Dict[str, Any]], Dict[str, Any]], Optional[str]]] = {
             "file_reader": (create_mock_agent(), "processed_files_content"),
             "trade_mapper": (create_mock_agent(), "trade_mapping"),
             "scope": (create_mock_agent(), "scope_items"),

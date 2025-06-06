@@ -1,8 +1,8 @@
-from agents.base_agent import BaseAgent
-from app.schemas import AppState, EstimateItem
+from backend.agents.base_agent import BaseAgent
+from backend.app.schemas import AppState, EstimateItem
 import logging
 import json
-from typing import List, Optional
+from typing import List, Dict, Any
 from datetime import datetime, timezone
 from io import BytesIO
 from docx import Document
@@ -89,7 +89,7 @@ class ExporterAgent(BaseAgent):
     
     def _calculate_grand_total(self, estimate_items: List[EstimateItem]) -> float:
         """Calculate the grand total from estimate items."""
-        return sum(item.total for item in estimate_items if item.total is not None)
+        return sum(item.total for item in estimate_items)
     
     def _export_json(self, state: AppState) -> None:
         """Export estimate data to JSON format."""
@@ -97,7 +97,7 @@ class ExporterAgent(BaseAgent):
         grand_total = self._calculate_grand_total(estimate_items)
         project_name = self._get_project_name(state)
         
-        export_data = {
+        export_data: Dict[str, Any] = {
             "project_name": project_name,
             "export_date": datetime.now(timezone.utc).isoformat(),
             "grand_total": grand_total,
@@ -302,6 +302,6 @@ class ExporterAgent(BaseAgent):
 exporter_agent = ExporterAgent()
 
 # Backward compatibility function
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function for backward compatibility."""
     return exporter_agent.handle(state_dict)

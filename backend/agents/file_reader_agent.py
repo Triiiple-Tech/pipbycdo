@@ -1,6 +1,6 @@
-from app.schemas import AppState, File
-from agents.base_agent import BaseAgent
-from services.utils.file_parser import MultimodalFileParser
+from backend.app.schemas import AppState, File
+from backend.agents.base_agent import BaseAgent
+from backend.services.utils.file_parser import MultimodalFileParser
 from typing import Dict, Any
 
 
@@ -20,7 +20,7 @@ class FileReaderAgent(BaseAgent):
         self.log_interaction(state, "Starting file processing", "File Reader Agent invoked")
         
         # Initialize processed files content if not exists
-        if state.processed_files_content is None:
+        if not state.processed_files_content:
             state.processed_files_content = {}
         
         # Check if there are files to process
@@ -40,7 +40,7 @@ class FileReaderAgent(BaseAgent):
                 self.log_interaction(state, f"File processing error: {file_data.filename}", 
                                    error_msg, level="error")
                 # Store error info for this file
-                if state.processed_files_content is None:
+                if not state.processed_files_content:
                     state.processed_files_content = {}
                 state.processed_files_content[file_data.filename] = f"[Error processing file: {str(e)}]"
         
@@ -71,7 +71,7 @@ class FileReaderAgent(BaseAgent):
             self.log_interaction(state, f"Missing content: {file_name}", error_msg, level="error")
             
             # Initialize processed_files_content if needed
-            if state.processed_files_content is None:
+            if not state.processed_files_content:
                 state.processed_files_content = {}
             state.processed_files_content[file_name] = f"[Error: File content is missing]"
             return
@@ -141,7 +141,7 @@ class FileReaderAgent(BaseAgent):
 file_reader_agent = FileReaderAgent()
 
 # Legacy handle function for existing code
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function that uses the new FileReaderAgent class."""
     return file_reader_agent.handle(state_dict)
                         

@@ -1,6 +1,6 @@
-from app.schemas import AppState
-from agents.base_agent import BaseAgent
-from typing import List, Dict, Any
+from backend.app.schemas import AppState
+from backend.agents.base_agent import BaseAgent
+from typing import List, Dict, Any, cast
 
 
 class ScopeAgent(BaseAgent):
@@ -128,22 +128,24 @@ Break this down into specific, measurable scope items that can be quantified for
                 scope_data = json.loads(response)
                 
                 # Validate and clean the response
-                validated_scope_items = []
+                validated_scope_items: List[Dict[str, Any]] = []
                 for item in scope_data:
                     if isinstance(item, dict) and "item_id" in item and "description" in item:
-                        validated_item = {
-                            "item_id": item.get("item_id", f"SCOPE-{csi_division}-AUTO"),
-                            "description": item.get("description", "Generated scope item"),
-                            "trade_name": item.get("trade_name", trade_name),
-                            "csi_division": item.get("csi_division", csi_division),
-                            "work_type": item.get("work_type", "material"),
-                            "estimated_unit": item.get("estimated_unit", "EA"),
-                            "complexity": item.get("complexity", "medium"),
-                            "notes": item.get("notes", ""),
+                        # Cast to ensure type checker knows this is a dict
+                        item_dict = cast(Dict[str, Any], item)
+                        validated_item: Dict[str, Any] = {
+                            "item_id": item_dict.get("item_id", f"SCOPE-{csi_division}-AUTO"),
+                            "description": item_dict.get("description", "Generated scope item"),
+                            "trade_name": item_dict.get("trade_name", trade_name),
+                            "csi_division": item_dict.get("csi_division", csi_division),
+                            "work_type": item_dict.get("work_type", "material"),
+                            "estimated_unit": item_dict.get("estimated_unit", "EA"),
+                            "complexity": item_dict.get("complexity", "medium"),
+                            "notes": item_dict.get("notes", ""),
                             "source_file": trade_entry.get("source_file", "N/A"),
                             "extraction_method": "LLM",
                             "quantity": None,  # To be determined by Takeoff Agent
-                            "unit": item.get("estimated_unit", "EA")  # Initial estimate
+                            "unit": item_dict.get("estimated_unit", "EA")  # Initial estimate
                         }
                         validated_scope_items.append(validated_item)
                 
@@ -159,7 +161,7 @@ Break this down into specific, measurable scope items that can be quantified for
         """
         Fallback method: Generate scope items using keyword-based analysis.
         """
-        scope_items = []
+        scope_items: List[Dict[str, Any]] = []
         csi_division = trade_entry.get("csi_division", "N/A")
         trade_name = trade_entry.get("trade_name", "Unspecified Trade")
         keywords_found = trade_entry.get("keywords_found", [])
@@ -168,7 +170,7 @@ Break this down into specific, measurable scope items that can be quantified for
 
         if not keywords_found and csi_division != "000000":
             # Create a general scope item for the trade
-            scope_items.append({
+            general_item: Dict[str, Any] = {
                 "item_id": f"SCOPE-{csi_division}-GENERAL",
                 "trade_name": trade_name,
                 "csi_division": csi_division,
@@ -179,14 +181,15 @@ Break this down into specific, measurable scope items that can be quantified for
                 "source_file": source_file,
                 "related_keywords": [],
                 "extraction_method": "keyword"
-            })
+            }
+            scope_items.append(general_item)
         else:
             # Create scope items based on keywords found
             if not keywords_found:
                 keywords_found = ["general scope"]  # Default if no keywords
 
             for i, keyword in enumerate(keywords_found):
-                scope_items.append({
+                keyword_item: Dict[str, Any] = {
                     "item_id": f"SCOPE-{csi_division}-{keyword.replace(' ', '_').upper()}-{i}",
                     "trade_name": trade_name,
                     "csi_division": csi_division,
@@ -197,7 +200,8 @@ Break this down into specific, measurable scope items that can be quantified for
                     "source_file": source_file,
                     "related_keywords": [keyword],
                     "extraction_method": "keyword"
-                })
+                }
+                scope_items.append(keyword_item)
         
         return scope_items
     
@@ -212,6 +216,10 @@ Break this down into specific, measurable scope items that can be quantified for
             "error_message": error_message,
             "extraction_method": "error"
         }
+    
+    def generate_scope_items_from_trade(self, trade_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Public method for generating scope items from trade information."""
+        return self._generate_scope_items_keywords(trade_info)
 
 
 # Create instance for backward compatibility
@@ -220,13 +228,13 @@ scope_agent = ScopeAgent()
 # Add the missing module-level functions that tests expect
 def generate_scope_items(trade_info: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Module-level function for generating scope items from trade information."""
-    return scope_agent._generate_scope_items_keywords(trade_info)
+    return scope_agent.generate_scope_items_from_trade(trade_info)
 
 def log_interaction(state: AppState, decision: str, message: str, level: str = "info") -> None:
     """Module-level function for logging interactions."""
     scope_agent.log_interaction(state, decision, message, level)
 
 # Legacy handle function for existing code
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function that uses the new ScopeAgent class."""
     return scope_agent.handle(state_dict)

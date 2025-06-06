@@ -1,8 +1,8 @@
-# pipbycdo/backend/services/gpt_handler.py
 import os
 import logging
 from openai import OpenAI
-from typing import Optional, Dict, Any
+from openai.types.chat import ChatCompletionMessageParam
+from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +13,13 @@ class LLMCallError(Exception):
         self.retry_with_fallback = retry_with_fallback
         super().__init__(message)
 
+# Simple message structure used by the OpenAI API
+# role: system, user, assistant, etc.
+# content: the message text
+
 def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = None, 
            api_key: Optional[str] = None, agent_name: Optional[str] = None, 
-           max_retries: int = 3, **kwargs) -> str:
+           max_retries: int = 3, **kwargs: Any) -> str:
     """
     Run an LLM with the specified model and API key, with automatic fallback support.
     
@@ -44,34 +48,49 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
     last_error = None
     current_model = model
     current_api_key = api_key
+    error_type = "unknown"
     
     for attempt in range(max_retries):
         try:
             logger.debug(f"LLM call attempt {attempt + 1}/{max_retries} with model '{current_model}'")
             
             client = OpenAI(api_key=current_api_key)
-            
-            messages = []
+            # Create messages for the API
+            messages: List[ChatCompletionMessageParam] = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
             
             # Handle model-specific parameter mappings
             api_params = kwargs.copy()
-            if current_model.startswith("o3"):
-                # o3 models use max_completion_tokens instead of max_tokens
+            if current_model.startswith("o3") or current_model.startswith("o4"):
+                # o3 and o4 models use max_completion_tokens instead of max_tokens
                 if "max_tokens" in api_params:
                     api_params["max_completion_tokens"] = api_params.pop("max_tokens")
                 
-                # o3 models don't support temperature=0, only default (1)
-                if "temperature" in api_params and api_params["temperature"] == 0:
-                    api_params.pop("temperature")  # Remove temperature=0, use default
+                # o3 and o4 models have specific temperature restrictions
+                if "temperature" in api_params:
+                    if current_model == "o4-mini":
+                        # o4-mini only supports default temperature (1.0)
+                        api_params.pop("temperature")
+                    elif api_params["temperature"] == 0:
+                        # Other o3/o4 models don't support temperature=0, only default (1)
+                        api_params.pop("temperature")  # Remove temperature=0, use default
             
-            resp = client.chat.completions.create(
+            # Create the chat completion - ignore type checking with type: ignore
+            response = client.chat.completions.create(  # type: ignore
                 model=current_model, messages=messages, **api_params
             )
             
-            result = resp.choices[0].message.content.strip()
+            # Process the response and extract content with proper type handling
+            try:
+                message_content = response.choices[0].message.content  # type: ignore
+                if message_content:
+                    result = str(message_content).strip()  # type: ignore
+                else:
+                    result = ""
+            except (AttributeError, IndexError):
+                result = ""
             
             if attempt > 0:
                 logger.info(f"LLM call succeeded on attempt {attempt + 1} with model '{current_model}'")
@@ -110,7 +129,7 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
     # All attempts failed
     raise LLMCallError(
         f"All {max_retries} LLM call attempts failed. Last error: {str(last_error)}", 
-        error_type if 'error_type' in locals() else "unknown",
+        error_type,
         False
     )
 
@@ -136,7 +155,7 @@ def _categorize_error(error: Exception) -> str:
 def _get_fallback_for_failed_call(agent_name: str, failed_model: str, error_msg: str, error_type: str) -> Optional[Dict[str, Any]]:
     """Get fallback configuration for a failed LLM call"""
     try:
-        from services.llm_selector import get_fallback_config
+        from backend.services.llm_selector import get_fallback_config
         return get_fallback_config(agent_name, failed_model, f"{error_type}: {error_msg}")
     except ImportError:
         logger.warning("Could not import get_fallback_config, fallback disabled")

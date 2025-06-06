@@ -1,7 +1,6 @@
 # backend/agents/takeoff_agent.py
-from agents.base_agent import BaseAgent
-from app.schemas import AppState
-from datetime import datetime, timezone
+from backend.agents.base_agent import BaseAgent
+from backend.app.schemas import AppState
 import logging
 import random
 import json
@@ -160,7 +159,7 @@ Provide takeoff data in the requested JSON format."""
                     return None
                 
                 # Build result
-                result = {
+                result: Dict[str, Any] = {
                     "scope_item_id": scope_item.get("item_id", "UNKNOWN_ITEM"),
                     "csi_division": scope_item.get("csi_division", "N/A"),
                     "description": scope_item.get("description", "N/A"),
@@ -174,7 +173,7 @@ Provide takeoff data in the requested JSON format."""
                 
                 self.log_interaction(state, f"LLM takeoff successful for {scope_item.get('item_id')}", 
                                    f"Generated quantity: {result['quantity']} {result['unit']} "
-                                   f"(confidence: {result.get('confidence', 'unknown')})")
+                                   f"(confidence: {str(result.get('confidence', 'unknown'))})")  # type: ignore
                 return result
                 
             except json.JSONDecodeError as e:
@@ -279,6 +278,6 @@ Provide takeoff data in the requested JSON format."""
 takeoff_agent = TakeoffAgent()
 
 # Backward compatibility function
-def handle(state_dict: dict) -> dict:
+def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function for backward compatibility."""
     return takeoff_agent.handle(state_dict)

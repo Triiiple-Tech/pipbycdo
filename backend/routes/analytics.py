@@ -6,33 +6,43 @@ Provides comprehensive analytics endpoints for the PIP AI system
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Body
 from fastapi.responses import StreamingResponse
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
-from datetime import datetime, timezone, timedelta
 from enum import Enum
+from io import StringIO
 import random
 import json
 import io
 import uuid
+import csv
+from io import StringIO
+
 try:
     # For regular app runtime
-    from ..services.supabase_client import get_supabase_client
+    from ..services.supabase_client import get_supabase_client  # type: ignore
+    supabase_available = True
 except (ImportError, ValueError):
     # For tests where relative imports might fail
     try:
-        from backend.services.supabase_client import get_supabase_client
+        from services.supabase_client import get_supabase_client  # type: ignore
+        supabase_available = True
     except ImportError:
         # Mock function for testing/development
-        def get_supabase_client():
+        supabase_available = False
+        def get_supabase_client():  # type: ignore
             class MockSupabase:
-                def table(self, _):
+                def table(self, table_name: str):
                     return self
-                def insert(self, _):
+                def insert(self, data: Dict[str, Any]):
                     return self
                 def execute(self):
-                    return type('obj', (object,), {'data': [{'success': True}]})
+                    class MockResult:
+                        def __init__(self):
+                            self.data = [{'success': True}]
+                    return MockResult()
             return MockSupabase()
+
+router = APIRouter(tags=["analytics"])
 
 # Enums for validation
 class ProjectStatus(str, Enum):
@@ -70,16 +80,11 @@ class LogLevel(str, Enum):
     error = "error"
     critical = "critical"
 
-from services.supabase_client import get_supabase_client
-from app.schemas import AgentTraceEntry, MeetingLogEntry
-
-router = APIRouter(prefix="/analytics", tags=["analytics"])
-
 # Pydantic Models for Analytics
 class ProjectMetrics(BaseModel):
     id: str
     name: str
-    status: str = Field(..., regex="^(active|planning|completed|on_hold)$")
+    status: str = Field(..., pattern="^(active|planning|completed|on_hold)$")
     progress: float = Field(..., ge=0, le=100)
     budget: Dict[str, float]
     timeline: Dict[str, Any]
@@ -112,8 +117,8 @@ class RealTimeMetrics(BaseModel):
     last_updated: datetime
 
 class ExportRequest(BaseModel):
-    format: str = Field(..., regex="^(pdf|excel|csv|png|json)$")
-    data: str = Field(..., regex="^(dashboard|projects|agents|kpis|custom)$")
+    format: str = Field(..., pattern="^(pdf|excel|csv|png|json)$")
+    data: str = Field(..., pattern="^(dashboard|projects|agents|kpis|custom)$")
     filters: Optional[Dict[str, Any]] = None
     options: Optional[Dict[str, Any]] = None
 
@@ -130,7 +135,7 @@ class AuditLogEntry(BaseModel):
     user_id: Optional[str] = None
     user_email: Optional[str] = None
     agent: str
-    event_type: str = Field(..., regex="^(file_upload|agent_call|sheet_export|prompt_edit|user_action|system_event)$")
+    event_type: str = Field(..., pattern="^(file_upload|agent_call|sheet_export|prompt_edit|user_action|system_event)$")
     event_details: str
     model_used: Optional[str] = None
     session_id: Optional[str] = None
@@ -140,7 +145,7 @@ class AuditLogEntry(BaseModel):
     cost_estimate: Optional[float] = None
     duration_ms: Optional[int] = None
     error: Optional[str] = None
-    level: str = Field(default="info", regex="^(debug|info|warning|error|critical)$")
+    level: str = Field(default="info", pattern="^(debug|info|warning|error|critical)$")
 
 class AuditLogResponse(BaseModel):
     logs: List[AuditLogEntry]
@@ -149,19 +154,37 @@ class AuditLogResponse(BaseModel):
     page_size: int
     filters_applied: Dict[str, Any]
 
-class AuditLogFilters(BaseModel):
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    agent: Optional[str] = None
-    event_type: Optional[str] = None
+class AuditLogCreate(BaseModel):
+    """Schema for creating a new audit log entry"""
     user_id: Optional[str] = None
-    level: Optional[str] = None
-    search: Optional[str] = None
+    user_email: Optional[str] = None
+    agent: str
+    event_type: str = Field(..., pattern="^(file_upload|agent_call|sheet_export|prompt_edit|user_action|system_event)$")
+    event_details: str
+    model_used: Optional[str] = None
+    session_id: Optional[str] = None
+    task_id: Optional[str] = None
+    cost_estimate: Optional[float] = None
+    duration_ms: Optional[int] = None
+    level: str = Field(default="info", pattern="^(debug|info|warning|error|critical)$")
+    error: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+# In-memory storage for audit logs when database is unavailable
+local_audit_logs: List[Dict[str, Any]] = []
+
+def store_audit_log_locally(audit_log: Dict[str, Any]) -> None:
+    """Store an audit log entry in local memory for development/testing"""
+    local_audit_logs.append(audit_log)
+    # Limit the size of in-memory logs to prevent memory issues
+    if len(local_audit_logs) > 1000:
+        local_audit_logs.pop(0)  # Remove oldest log
 
 # Mock Data Generators (for development)
 def generate_mock_project_metrics() -> List[Dict[str, Any]]:
     """Generate mock project metrics data"""
-    projects = []
+    projects: List[Dict[str, Any]] = []
     for i in range(5):
         project_id = f"PRJ-2025-{str(i+1).zfill(3)}"
         projects.append({
@@ -221,7 +244,7 @@ def generate_mock_project_metrics() -> List[Dict[str, Any]]:
 def generate_mock_agent_metrics() -> List[Dict[str, Any]]:
     """Generate mock agent metrics data"""
     agent_types = ["manager", "file-reader", "trade-mapper", "scope", "takeoff", "estimator", "qa-validator", "exporter"]
-    agents = []
+    agents: List[Dict[str, Any]] = []
     
     for i, agent_type in enumerate(agent_types):
         agents.append({
@@ -253,10 +276,10 @@ def generate_mock_agent_metrics() -> List[Dict[str, Any]]:
 def generate_mock_kpi_metrics() -> List[Dict[str, Any]]:
     """Generate mock KPI metrics data"""
     categories = ["project", "agent", "system", "financial"]
-    kpis = []
+    kpis: List[Dict[str, Any]] = []
     
     for category in categories:
-        metrics = []
+        metrics: List[Dict[str, Any]] = []
         if category == "project":
             metrics = [
                 {"name": "Project Success Rate", "value": 92.5, "unit": "%", "target": 95, "trend": "up", "trend_percentage": 2.1, "description": "Percentage of projects completed successfully"},
@@ -342,9 +365,8 @@ def generate_mock_audit_logs(
     page_size: int = 50
 ) -> Dict[str, Any]:
     """Generate mock audit log data with filtering"""
-    
     # Generate base audit entries
-    audit_entries = []
+    audit_entries: List[Dict[str, Any]] = []
     users = ["alice@acme.com", "bob@acme.com", "charlie@acme.com", "diana@acme.com"]
     agents = ["manager", "file-reader", "trade-mapper", "scope", "takeoff", "estimator", "qa-validator", "exporter"]
     event_types = ["file_upload", "agent_call", "sheet_export", "prompt_edit", "user_action", "system_event"]
@@ -379,7 +401,7 @@ def generate_mock_audit_logs(
         else:  # system_event
             details = f"System {random.choice(['backup completed', 'cache cleared', 'model updated', 'maintenance performed'])}"
         
-        entry = {
+        entry: Dict[str, Any] = {
             "id": f"audit-{str(i+1).zfill(4)}",
             "timestamp": entry_date,
             "user_id": selected_user.split('@')[0],
@@ -401,7 +423,7 @@ def generate_mock_audit_logs(
         audit_entries.append(entry)
     
     # Apply filters
-    filtered_entries = audit_entries
+    filtered_entries = audit_entries.copy()
     
     if start_date:
         filtered_entries = [e for e in filtered_entries if e["timestamp"] >= start_date]
@@ -418,9 +440,9 @@ def generate_mock_audit_logs(
     if search:
         search_lower = search.lower()
         filtered_entries = [e for e in filtered_entries if 
-            search_lower in e["event_details"].lower() or 
-            search_lower in e["agent"].lower() or
-            search_lower in e["user_email"].lower()]
+            search_lower in str(e["event_details"]).lower() or 
+            search_lower in str(e["agent"]).lower() or
+            search_lower in str(e["user_email"]).lower()]
     
     # Sort by timestamp (newest first)
     filtered_entries.sort(key=lambda x: x["timestamp"], reverse=True)
@@ -431,9 +453,8 @@ def generate_mock_audit_logs(
     end_index = start_index + page_size
     paginated_entries = filtered_entries[start_index:end_index]
     
-    # Convert datetime objects to ISO strings for JSON serialization
-    for entry in paginated_entries:
-        entry["timestamp"] = entry["timestamp"].isoformat()
+    # Keep datetime objects as-is for Pydantic model validation
+    # The AuditLogEntry model expects datetime objects, not ISO strings
     
     return {
         "logs": paginated_entries,
@@ -458,7 +479,7 @@ async def get_dashboard_data(
     date_start: Optional[str] = Query(None),
     date_end: Optional[str] = Query(None),
     project_ids: Optional[List[str]] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get comprehensive dashboard analytics data"""
     try:
         # In production, this would query the database with filters
@@ -475,7 +496,7 @@ async def get_dashboard_data(
 @router.get("/projects")
 async def get_project_metrics(
     project_id: Optional[str] = Query(None)
-):
+) -> List[Dict[str, Any]]:
     """Get project metrics data"""
     try:
         projects = generate_mock_project_metrics()
@@ -490,7 +511,7 @@ async def get_project_metrics(
         raise HTTPException(status_code=500, detail=f"Failed to fetch project metrics: {str(e)}")
 
 @router.get("/projects/{project_id}/health")
-async def get_project_health(project_id: str):
+async def get_project_health(project_id: str) -> Dict[str, Any]:
     """Get detailed project health analysis"""
     try:
         projects = generate_mock_project_metrics()
@@ -515,7 +536,7 @@ async def get_project_health(project_id: str):
 @router.get("/agents")
 async def get_agent_metrics(
     agent_type: Optional[str] = Query(None)
-):
+) -> List[Dict[str, Any]]:
     """Get agent performance metrics"""
     try:
         agents = generate_mock_agent_metrics()
@@ -530,7 +551,7 @@ async def get_agent_performance(
     agent_id: str,
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get detailed agent performance data"""
     try:
         agents = generate_mock_agent_metrics()
@@ -539,7 +560,7 @@ async def get_agent_performance(
             raise HTTPException(status_code=404, detail="Agent not found")
         
         # Generate timeline data for the specified period
-        timeline = []
+        timeline: List[Dict[str, Any]] = []
         for i in range(30):  # Last 30 days
             date = datetime.now() - timedelta(days=29-i)
             timeline.append({
@@ -567,7 +588,7 @@ async def get_kpi_metrics(
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None),
     type: Optional[str] = Query("monthly")
-):
+) -> List[Dict[str, Any]]:
     """Get KPI metrics data"""
     try:
         kpis = generate_mock_kpi_metrics()
@@ -578,34 +599,33 @@ async def get_kpi_metrics(
         raise HTTPException(status_code=500, detail=f"Failed to fetch KPI metrics: {str(e)}")
 
 @router.post("/kpis/trends")
-async def get_kpi_trends(request: Dict[str, Any]):
+async def get_kpi_trends(request: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
     """Get KPI trend data for specified metrics"""
     try:
         metrics = request.get("metrics", [])
-        period = request.get("period", {})
         
-        trends = {}
+        trends: Dict[str, List[Dict[str, Any]]] = {}
         for metric in metrics:
             # Generate trend data for the last 30 days
-            trend_data = []
+            trend_data: List[Dict[str, Any]] = []
             for i in range(30):
                 date = datetime.now() - timedelta(days=29-i)
                 # Generate realistic trend values
-                base_value = 75 + (hash(metric) % 50)  # Deterministic but varied base
+                base_value = 75 + (hash(str(metric)) % 50)  # Deterministic but varied base
                 variation = 10 * (0.5 - (i % 10) / 20)  # Some variation
                 value = max(0, base_value + variation + (i * 0.5))
                 trend_data.append({
                     "date": date.isoformat(),
                     "value": round(value, 2)
                 })
-            trends[metric] = trend_data
+            trends[str(metric)] = trend_data
         
         return trends
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch KPI trends: {str(e)}")
 
 @router.get("/realtime")
-async def get_realtime_metrics():
+async def get_realtime_metrics() -> Dict[str, Any]:
     """Get real-time system metrics"""
     try:
         return generate_mock_realtime_metrics()
@@ -613,7 +633,7 @@ async def get_realtime_metrics():
         raise HTTPException(status_code=500, detail=f"Failed to fetch real-time metrics: {str(e)}")
 
 @router.get("/system/health")
-async def get_system_health():
+async def get_system_health() -> Dict[str, Any]:
     """Get system health status"""
     try:
         return {
@@ -631,7 +651,7 @@ async def get_system_health():
         raise HTTPException(status_code=500, detail=f"Failed to fetch system health: {str(e)}")
 
 @router.post("/exports", response_model=ExportResponse)
-async def create_export(request: ExportRequest, background_tasks: BackgroundTasks):
+async def create_export(request: ExportRequest, background_tasks: BackgroundTasks) -> ExportResponse:
     """Create a new data export job"""
     try:
         job_id = str(uuid.uuid4())
@@ -645,14 +665,14 @@ async def create_export(request: ExportRequest, background_tasks: BackgroundTask
         )
         
         # Add background task to process the export
-        background_tasks.add_task(process_export_job, job_id, request.dict())
+        background_tasks.add_task(process_export_job, job_id, request.model_dump())
         
         return export_response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create export: {str(e)}")
 
 @router.get("/exports/{job_id}/status", response_model=ExportResponse)
-async def get_export_status(job_id: str):
+async def get_export_status(job_id: str) -> ExportResponse:
     """Get export job status"""
     try:
         # In production, this would check job status in database/queue
@@ -666,12 +686,12 @@ async def get_export_status(job_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to get export status: {str(e)}")
 
 @router.get("/exports/{job_id}/download")
-async def download_export(job_id: str):
+async def download_export(job_id: str) -> StreamingResponse:
     """Download completed export file"""
     try:
         # In production, this would retrieve the actual file
         # For now, return a sample JSON export
-        mock_data = {
+        mock_data: Dict[str, Any] = {
             "export_id": job_id,
             "timestamp": datetime.now().isoformat(),
             "data": generate_mock_project_metrics(),
@@ -683,7 +703,6 @@ async def download_export(job_id: str):
         }
         
         json_str = json.dumps(mock_data, indent=2)
-        file_obj = io.BytesIO(json_str.encode())
         
         return StreamingResponse(
             io.BytesIO(json_str.encode()),
@@ -700,7 +719,7 @@ async def get_alerts(
     alert_type: Optional[str] = Query(None),
     acknowledged: Optional[bool] = Query(None),
     project_id: Optional[str] = Query(None)
-):
+) -> List[Dict[str, Any]]:
     """Get system alerts with optional filtering"""
     try:
         alerts = generate_mock_realtime_metrics()["alerts"]
@@ -717,7 +736,7 @@ async def get_alerts(
         raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
 
 @router.patch("/alerts/{alert_id}/acknowledge")
-async def acknowledge_alert(alert_id: str):
+async def acknowledge_alert(alert_id: str) -> Dict[str, str]:
     """Acknowledge an alert"""
     try:
         # In production, this would update the alert in the database
@@ -726,7 +745,7 @@ async def acknowledge_alert(alert_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to acknowledge alert: {str(e)}")
 
 @router.delete("/alerts/{alert_id}")
-async def dismiss_alert(alert_id: str):
+async def dismiss_alert(alert_id: str) -> Dict[str, str]:
     """Dismiss an alert"""
     try:
         # In production, this would remove the alert from the database
@@ -740,7 +759,7 @@ async def get_timeseries_data(
     start: str = Query(...),
     end: str = Query(...),
     granularity: str = Query("day")
-):
+) -> List[Dict[str, Any]]:
     """Get time series data for specified metric"""
     try:
         # Parse dates
@@ -748,7 +767,7 @@ async def get_timeseries_data(
         end_date = datetime.fromisoformat(end.replace('Z', '+00:00'))
         
         # Generate time series data
-        data = []
+        data: List[Dict[str, Any]] = []
         current_date = start_date
         
         while current_date <= end_date:
@@ -782,7 +801,7 @@ async def get_budget_analytics(
     project_id: Optional[str] = Query(None),
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get budget analytics data"""
     try:
         return {
@@ -813,7 +832,7 @@ async def get_budget_analytics(
 async def get_resource_utilization(
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get resource utilization metrics"""
     try:
         return {
@@ -851,7 +870,7 @@ async def get_audit_logs(
     search: Optional[str] = Query(None, description="Search in event details"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page")
-):
+) -> AuditLogResponse:
     """Get audit logs with filtering and pagination"""
     try:
         # Parse date parameters
@@ -901,7 +920,7 @@ async def export_audit_logs(
     user_id: Optional[str] = Query(None),
     level: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
-):
+) -> StreamingResponse:
     """Export audit logs in various formats"""
     try:
         # Parse dates
@@ -939,9 +958,6 @@ async def export_audit_logs(
         
         elif format == "csv":
             # Generate CSV format
-            import csv
-            from io import StringIO
-            
             output = StringIO()
             writer = csv.writer(output)
             
@@ -1001,7 +1017,7 @@ async def export_audit_logs(
 async def get_audit_logs_stats(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
-):
+) -> Dict[str, Any]:
     """Get audit logs statistics and summary"""
     try:
         # Parse dates
@@ -1063,8 +1079,45 @@ async def get_audit_logs_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch audit logs stats: {str(e)}")
 
+@router.post("/audit-logs")
+async def create_audit_log(audit_log: AuditLogCreate = Body(...)) -> Dict[str, str]:
+    """Create a new audit log entry and store it in the database"""
+    try:
+        # Generate a unique ID for the audit log
+        log_id = f"audit-{uuid.uuid4().hex[:8]}"
+        
+        # Create a complete audit log entry with timestamp and ID
+        audit_entry: Dict[str, Any] = {
+            "id": log_id,
+            "timestamp": datetime.now().isoformat(),
+            **audit_log.model_dump(exclude_none=True)
+        }
+        
+        if supabase_available:
+            try:
+                # Store the audit log in Supabase
+                supabase = get_supabase_client()
+                result = supabase.table("audit_logs").insert(audit_entry).execute()
+                
+                # Check if the insert was successful
+                if hasattr(result, 'data') and result.data:
+                    return {"message": "Audit log entry created successfully", "log_id": log_id}
+                else:
+                    # Fall back to local storage if Supabase fails
+                    print(f"Warning: Supabase insert failed, using local storage for audit log {log_id}")
+            except Exception as db_error:
+                # Log the database error but continue with local storage
+                print(f"Database error: {db_error}")
+        
+        # For development or when Supabase is not available, store mock data in memory
+        store_audit_log_locally(audit_entry)
+        return {"message": "Audit log entry created successfully", "log_id": log_id}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create audit log: {str(e)}")
+
 # Background task function
-async def process_export_job(job_id: str, request_data: Dict[str, Any]):
+async def process_export_job(job_id: str, request_data: Dict[str, Any]) -> None:
     """Process export job in background"""
     # In production, this would:
     # 1. Generate the requested export
@@ -1072,61 +1125,3 @@ async def process_export_job(job_id: str, request_data: Dict[str, Any]):
     # 3. Update job status in database
     # 4. Send notification when complete
     pass
-
-
-class AuditLogCreate(BaseModel):
-    """Schema for creating a new audit log entry"""
-    user_id: Optional[str] = None
-    user_email: Optional[str] = None
-    agent: str
-    event_type: str = Field(..., regex="^(file_upload|agent_call|sheet_export|prompt_edit|user_action|system_event)$")
-    event_details: str
-    model_used: Optional[str] = None
-    session_id: Optional[str] = None
-    task_id: Optional[str] = None
-    cost_estimate: Optional[float] = None
-    duration_ms: Optional[int] = None
-    level: str = Field(default="info", regex="^(debug|info|warning|error|critical)$")
-    error: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-
-
-@router.post("/audit-logs")
-async def create_audit_log(audit_log: AuditLogCreate = Body(...)):
-    """Create a new audit log entry and store it in the database"""
-    try:
-        # Generate a unique ID for the audit log
-        log_id = f"audit-{uuid.uuid4().hex[:8]}"
-        
-        # Create a complete audit log entry with timestamp and ID
-        audit_entry = {
-            "id": log_id,
-            "timestamp": datetime.now().isoformat(),
-            **audit_log.dict(exclude_none=True)
-        }
-        
-        try:
-            # Store the audit log in Supabase
-            supabase = get_supabase_client()
-            result = supabase.table("audit_logs").insert(audit_entry).execute()
-            
-            # Check if the insert was successful
-            if hasattr(result, 'data') and result.data:
-                return {"message": "Audit log entry created successfully", "log_id": log_id}
-            else:
-                # Fall back to local storage if Supabase fails
-                print(f"Warning: Supabase insert failed, using local storage for audit log {log_id}")
-        except Exception as db_error:
-            # Log the database error but continue with local storage
-            print(f"Database error: {db_error}")
-        
-        # For development or when Supabase is not available, store mock data in memory
-        # In a production environment, you might want to queue failed inserts for retry
-        from .audit_endpoints import store_audit_log_locally
-        store_audit_log_locally(audit_entry)
-        
-        return {"message": "Audit log entry created successfully", "log_id": log_id}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create audit log: {str(e)}")

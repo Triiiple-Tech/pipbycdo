@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-import json # Added for parsing JSON strings from form data
 
 class File(BaseModel):
     filename: str  # Changed from 'name' to 'filename' to match spec
@@ -53,7 +52,7 @@ class AppState(BaseModel):
     # Core input fields
     query: Optional[str] = None
     content: Optional[str] = None
-    files: List[File] = Field(default_factory=list)
+    files: List[File] = Field(default_factory=lambda: [])
     
     # Metadata about the request/project
     metadata: Dict[str, Any] = Field(default_factory=lambda: {
@@ -69,30 +68,30 @@ class AppState(BaseModel):
     llm_config: Optional[LLMConfig] = None
     
     # Conversation history
-    history: List[HistoryEntry] = Field(default_factory=list)
+    history: List[HistoryEntry] = Field(default_factory=lambda: [])
     
     # Agent coordination and logging
-    meeting_log: List[MeetingLogEntry] = Field(default_factory=list)
-    agent_trace: List[AgentTraceEntry] = Field(default_factory=list)
+    meeting_log: List[MeetingLogEntry] = Field(default_factory=lambda: [])
+    agent_trace: List[AgentTraceEntry] = Field(default_factory=lambda: [])
     
     # Agent-specific output fields
-    processed_files_content: Optional[Dict[str, str]] = Field(default_factory=dict) # For File Reader output
-    trade_mapping: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Trade Mapper output
-    scope_items: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Scope Agent output
-    takeoff_data: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For Takeoff Agent output
-    qa_findings: Optional[List[Dict[str, Any]]] = Field(default_factory=list) # For QA Validator output
+    processed_files_content: Optional[Dict[str, str]] = Field(default_factory=lambda: {}) # For File Reader output
+    trade_mapping: Optional[List[Dict[str, Any]]] = Field(default_factory=lambda: []) # For Trade Mapper output
+    scope_items: Optional[List[Dict[str, Any]]] = Field(default_factory=lambda: []) # For Scope Agent output
+    takeoff_data: Optional[List[Dict[str, Any]]] = Field(default_factory=lambda: []) # For Takeoff Agent output
+    qa_findings: Optional[List[Dict[str, Any]]] = Field(default_factory=lambda: []) # For QA Validator output
     
     # User and session management
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     
     # Final outputs
-    estimate: List[EstimateItem] = Field(default_factory=list)
+    estimate: List[EstimateItem] = Field(default_factory=lambda: [])
     result: Optional[Any] = None  # General result field
     
     # Export functionality
     export: Optional[str] = None # Result from exporter agent - general message
-    export_options: Optional[Dict[str, Any]] = Field(default_factory=dict) # For export parameters
+    export_options: Optional[Dict[str, Any]] = Field(default_factory=lambda: {}) # For export parameters
     exported_file_content: Optional[bytes] = None # For the content of the exported file
     exported_file_name: Optional[str] = None # For the name of the exported file
     exported_content_type: Optional[str] = None # For the MIME type of the exported file

@@ -1,0 +1,49 @@
+name: "PIP AI Construction Document Analysis Platform"
+description: "AI-powered construction document analysis with agent-based processing architecture"
+
+# GitHub Copilot Workspace Configuration
+copilot_workspace:
+  enabled: true
+  
+  # Project context for autonomous agents
+  context:
+    domain: "construction document analysis"
+    architecture: "agent-based microservices"
+    tech_stack:
+      backend: "FastAPI, Python"
+      frontend: "React, TypeScript, Tailwind CSS"
+      database: "Supabase (PostgreSQL)"
+      ai: "OpenAI GPT models"
+    
+  # Agent workflow patterns
+  agent_patterns:
+    - name: "FileReaderAgent"
+      purpose: "Document processing and text extraction"
+    - name: "ScopeAgent" 
+      purpose: "Project scope analysis and categorization"
+    - name: "TakeoffAgent"
+      purpose: "Quantity takeoff calculations"
+    - name: "TradeMapperAgent"
+      purpose: "Trade classification and mapping"
+    - name: "EstimatorAgent"
+      purpose: "Cost estimation and pricing"
+    - name: "QAValidatorAgent"
+      purpose: "Quality assurance and validation"
+    - name: "ExporterAgent"
+      purpose: "Data export and formatting"
+    - name: "ManagerAgent"
+      purpose: "Orchestration and workflow management"
+
+  # Development preferences
+  code_style:
+    async_patterns: true
+    error_handling: "comprehensive"
+    validation: "pydantic_models"
+    testing: "pytest_with_fixtures"
+    
+  # Enhanced features
+  enhanced_copilot:
+    instructions_file: ".copilot-instructions.md"
+    mcp_server: ".copilot/mcp-server-simple.js"
+    snippets: ".vscode/snippets.code-snippets"
+    settings: ".vscode/settings.json"

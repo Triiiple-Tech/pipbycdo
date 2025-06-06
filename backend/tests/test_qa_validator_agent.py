@@ -1,33 +1,16 @@
-import pytest
-from unittest.mock import Mock, patch
+from typing import Dict, Any
 from backend.agents import qa_validator_agent
-from backend.app.schemas import AppState, EstimateItem
 
 class TestQAValidatorAgent:
-    def test_qa_validator_agent_handle_function_exists(self):
+    def test_qa_validator_agent_handle_function_exists(self) -> None:
         """Test QA validator agent handle function exists"""
         assert hasattr(qa_validator_agent, 'handle')
         
-    def test_handle_basic_validation(self):
+    def test_handle_basic_validation(self) -> None:
         """Test basic validation through handle function"""
-        initial_state = {
+        initial_state: Dict[str, Any] = {
             "estimate": [
-                {
-                    "item": "Electrical outlets",
-                    "description": "Install duplex outlets",
-                    "qty": 10.0,
-                    "unit": "each",
-                    "unit_price": 45.0,
-                    "total": 450.0
-                }
-            ],
-            "takeoff_data": [
-                {
-                    "description": "Electrical outlets",
-                    "quantity": 10,
-                    "unit": "each",
-                    "trade": "electrical"
-                }
+                {"item": "Test Item", "qty": 2.0, "unit": "EA", "unit_price": 100.0, "total": 200.0}
             ],
             "agent_trace": [],
             "meeting_log": []
@@ -35,36 +18,29 @@ class TestQAValidatorAgent:
         
         result = qa_validator_agent.handle(initial_state)
         
-        # Should return a dictionary with state data
         assert isinstance(result, dict)
+        assert "estimate" in result
         assert "agent_trace" in result
         assert "meeting_log" in result
         
-    def test_validation_with_empty_state(self):
-        """Test validation with minimal state"""
-        initial_state = {
-            "agent_trace": [],
-            "meeting_log": [],
+    def test_validation_with_empty_state(self) -> None:
+        """Test validation with empty state"""
+        initial_state: Dict[str, Any] = {
             "estimate": [],
-            "takeoff_data": []
+            "agent_trace": [],
+            "meeting_log": []
         }
         
         result = qa_validator_agent.handle(initial_state)
         
         assert isinstance(result, dict)
-        # Should handle empty data gracefully
+        assert result["estimate"] == []
         
-    def test_validation_with_invalid_data(self):
-        """Test validation handles invalid data"""
-        initial_state = {
+    def test_validation_with_invalid_data(self) -> None:
+        """Test validation with invalid estimate data"""
+        initial_state: Dict[str, Any] = {
             "estimate": [
-                {
-                    "item": "Invalid item",
-                    "qty": -5,  # Invalid negative quantity
-                    "unit": "each",
-                    "unit_price": 45.0,
-                    "total": -225.0  # Should be positive
-                }
+                {"item": "Invalid Item", "qty": -1, "unit": "EA", "unit_price": 0, "total": 0}
             ],
             "agent_trace": [],
             "meeting_log": []
@@ -73,11 +49,15 @@ class TestQAValidatorAgent:
         result = qa_validator_agent.handle(initial_state)
         
         assert isinstance(result, dict)
-        # Should handle invalid data and potentially flag errors
+        # QA validator should identify issues with negative quantities and zero prices
+        assert "agent_trace" in result
+        assert len(result["agent_trace"]) > 0
         
-    def test_log_interaction_function(self):
+    def test_log_interaction_function(self) -> None:
         """Test log interaction helper function"""
         from backend.agents.qa_validator_agent import qa_validator_agent as agent_instance
+        from backend.app.schemas import AppState
+        
         state = AppState()
         
         agent_instance.log_interaction(state, "test decision", "test message")
@@ -87,9 +67,9 @@ class TestQAValidatorAgent:
         assert state.agent_trace[0].agent == "qa_validator"
         assert state.agent_trace[0].decision == "test decision"
         
-    def test_validation_with_pricing_mismatch(self):
+    def test_validation_with_pricing_mismatch(self) -> None:
         """Test validation detects pricing calculation errors"""
-        initial_state = {
+        initial_state: Dict[str, Any] = {
             "estimate": [
                 {
                     "item": "Test item",
@@ -107,3 +87,8 @@ class TestQAValidatorAgent:
         
         assert isinstance(result, dict)
         # Should potentially detect the calculation error
+
+
+if __name__ == "__main__":
+    import pytest
+    pytest.main([__file__, "-v"])

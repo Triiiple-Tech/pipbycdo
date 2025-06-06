@@ -1,7 +1,7 @@
 # backend/services/intent_classifier.py
 from typing import Dict, List, Optional, Any
-from app.schemas import AppState
-from services.gpt_handler import run_llm
+from backend.app.schemas import AppState
+from backend.services.gpt_handler import run_llm
 import logging
 import json
 
@@ -14,7 +14,7 @@ class IntentClassifier:
     """
     
     # Define possible intents and their characteristics
-    INTENT_DEFINITIONS = {
+    INTENT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "full_estimation": {
             "description": "Complete estimation pipeline from files to final estimate",
             "required_agents": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"],
@@ -83,7 +83,7 @@ class IntentClassifier:
     
     def _gather_context(self, state: AppState) -> Dict[str, Any]:
         """Gather relevant context for intent classification."""
-        context = {
+        context: Dict[str, Any] = {
             "has_query": bool(state.query and state.query.strip()),
             "query_text": state.query or "",
             "has_files": bool(state.files and len(state.files) > 0),

@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-from app.schemas import AppState, LLMConfig, File, HistoryEntry, AgentTraceEntry, MeetingLogEntry, EstimateItem
-from services.llm_selector import select_llm
+from backend.app.schemas import AppState, LLMConfig, File, AgentTraceEntry, MeetingLogEntry, EstimateItem
+from backend.services.llm_selector import select_llm
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,13 +24,17 @@ def create_initial_state(
     
     # Set up LLM configuration for the agent
     llm_selection = select_llm(agent_name, {})
+    model_name = llm_selection.get("model")
+    if not model_name:
+        raise ValueError(f"No model available for agent '{agent_name}'")
+    
     llm_config = LLMConfig(
-        model=llm_selection["model"],
+        model=model_name,
         api_key=llm_selection["api_key"]
     )
     
     # Default metadata structure
-    default_metadata = {
+    default_metadata: Dict[str, Any] = {
         "project_name": None,
         "location": None,
         "trade": None,
@@ -42,22 +46,32 @@ def create_initial_state(
         default_metadata.update(metadata)
     
     # Convert files to File objects if they're provided as dicts
-    file_objects = []
+    file_objects: List[File] = []
     if files:
         for file_data in files:
-            if isinstance(file_data, dict):
-                file_objects.append(File(**file_data))
-            else:
-                file_objects.append(file_data)
+            # Handle both dict and File object types
+            try:
+                if hasattr(file_data, 'filename'):  # It's already a File object
+                    file_objects.append(file_data)  # type: ignore
+                else:  # It's a dict
+                    file_objects.append(File(**file_data))  # type: ignore
+            except Exception as e:
+                logger.warning(f"Failed to process file data: {e}")
+                continue
     
     # Convert estimate to EstimateItem objects if they're provided as dicts
-    estimate_objects = []
+    estimate_objects: List[EstimateItem] = []
     if estimate:
         for estimate_data in estimate:
-            if isinstance(estimate_data, dict):
-                estimate_objects.append(EstimateItem(**estimate_data))
-            else:
-                estimate_objects.append(estimate_data)
+            # Handle both dict and EstimateItem object types
+            try:
+                if hasattr(estimate_data, 'description'):  # It's already an EstimateItem object
+                    estimate_objects.append(estimate_data)  # type: ignore
+                else:  # It's a dict
+                    estimate_objects.append(EstimateItem(**estimate_data))  # type: ignore
+            except Exception as e:
+                logger.warning(f"Failed to process estimate data: {e}")
+                continue
     
     # Create the initial state using AppState model
     initial_state = AppState(
@@ -114,15 +128,16 @@ def update_llm_config(state: Dict[str, Any], agent_name: str) -> Dict[str, Any]:
     if llm_selection.get("is_fallback"):
         log_message += f" (fallback from '{llm_selection.get('failed_model')}': {llm_selection.get('failure_reason', 'unknown')})"
     
-    state["agent_trace"].append({
+    trace_entry: Dict[str, Any] = {
         "agent": agent_name,
         "decision": log_message,
         "model": llm_selection["model"],
         "timestamp": timestamp.isoformat(),
         "api_key_source": llm_selection.get("api_key_source"),
         "is_fallback": llm_selection.get("is_fallback", False)
-    })
+    }
     
+    state["agent_trace"].append(trace_entry)  # type: ignore
     state["updated_at"] = timestamp.isoformat()
     
     return state
@@ -135,12 +150,13 @@ def add_to_history(state: Dict[str, Any], role: str, content: str) -> Dict[str, 
         state["history"] = []
     
     timestamp = datetime.now(timezone.utc)
-    state["history"].append({
+    history_entry: Dict[str, Any] = {
         "role": role,
         "content": content,
         "timestamp": timestamp.isoformat()
-    })
+    }
     
+    state["history"].append(history_entry)  # type: ignore
     state["updated_at"] = timestamp.isoformat()
     
     return state
@@ -160,7 +176,7 @@ def log_agent_interaction(state: Dict[str, Any], agent_name: str, decision: str,
     if "agent_trace" not in state:
         state["agent_trace"] = []
     
-    trace_entry = {
+    trace_entry: Dict[str, Any] = {
         "agent": agent_name,
         "decision": decision,
         "model": current_model,
@@ -171,17 +187,19 @@ def log_agent_interaction(state: Dict[str, Any], agent_name: str, decision: str,
         trace_entry["level"] = "error"
         trace_entry["error"] = message
     
-    state["agent_trace"].append(trace_entry)
+    state["agent_trace"].append(trace_entry)  # type: ignore
     
     # Add to meeting log
     if "meeting_log" not in state:
         state["meeting_log"] = []
     
-    state["meeting_log"].append({
+    meeting_entry: Dict[str, Any] = {
         "agent": agent_name,
         "message": message,
         "timestamp": timestamp.isoformat()
-    })
+    }
+    
+    state["meeting_log"].append(meeting_entry)  # type: ignore
     
     # Update error field if this is an error
     if level == "error":

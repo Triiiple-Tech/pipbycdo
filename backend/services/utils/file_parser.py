@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union, Any
-from app.schemas import File, AppState
-from services.utils.state import log_agent_interaction
+from typing import Dict, List, Optional, Any
+from backend.app.schemas import File
+from backend.services.utils.state import log_agent_interaction
 import io
 import logging
 
@@ -24,7 +24,7 @@ except ImportError:
 
 try:
     from PIL import Image
-    import pytesseract
+    import pytesseract  # type: ignore
 except ImportError:
     Image = None
     pytesseract = None
@@ -152,7 +152,7 @@ class MultimodalFileParser:
         Returns:
             Dict[filename, parsing_result]
         """
-        results = {}
+        results: Dict[str, Dict[str, Any]] = {}
         
         for file in files:
             results[file.filename] = self.parse_file(file, state_dict)
@@ -269,7 +269,7 @@ class MultimodalFileParser:
             text = "\n".join(paragraphs)
             
             # Extract table content as well
-            tables_text = []
+            tables_text: List[str] = []
             for table in document.tables:
                 for row in table.rows:
                     row_text = " | ".join([cell.text.strip() for cell in row.cells])
@@ -310,7 +310,7 @@ class MultimodalFileParser:
         
         try:
             workbook = load_workbook(io.BytesIO(data), read_only=True)
-            text_parts = []
+            text_parts: List[str] = []
             total_rows = 0
             
             for sheet_name in workbook.sheetnames:
@@ -325,7 +325,7 @@ class MultimodalFileParser:
                 max_col = min(max_col, 50)
                 
                 for row_num in range(1, max_row + 1):
-                    row_data = []
+                    row_data: List[str] = []
                     has_data = False
                     
                     for col_num in range(1, max_col + 1):
@@ -396,7 +396,7 @@ class MultimodalFileParser:
             width, height = image.size
             
             # Perform OCR
-            text = pytesseract.image_to_string(image)
+            text = str(pytesseract.image_to_string(image))  # type: ignore
             
             return {
                 'content': text.strip(),

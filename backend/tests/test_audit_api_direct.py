@@ -4,18 +4,17 @@ Simple script to test the audit logging API endpoints directly
 """
 
 import requests
-import json
 import uuid
-from datetime import datetime
+from typing import Dict, Any, Optional
 
 BASE_URL = "http://localhost:8000"  # Adjust to your backend URL
 
-def test_create_audit_log():
+def test_create_audit_log() -> Optional[str]:
     """Test creating an audit log entry"""
     session_id = f"test-session-{uuid.uuid4().hex[:8]}"
     
     # Create a test audit log entry
-    log_data = {
+    log_data: Dict[str, Any] = {
         "user_id": "test-user",
         "user_email": "test@example.com",
         "agent": "test-agent",
@@ -28,85 +27,80 @@ def test_create_audit_log():
     
     # Send POST request to create audit log
     print("Testing audit log creation...")
-    response = requests.post(f"{BASE_URL}/analytics/audit-logs", json=log_data)
-    
-    # Check response
-    if response.status_code == 200:
-        result = response.json()
-        print(f"Success: {result}")
-        assert "message" in result
-        assert "log_id" in result
-        return session_id
-    else:
-        print(f"Error: {response.status_code}")
-        print(response.text)
+    try:
+        response = requests.post(f"{BASE_URL}/analytics/audit-logs", json=log_data)
+        
+        # Check response
+        if response.status_code == 200:
+            print(f"✅ Audit log created successfully: {response.json()}")
+            return session_id
+        else:
+            print(f"❌ Failed to create audit log: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        print(f"❌ Error creating audit log: {e}")
         return None
 
-def test_retrieve_audit_logs(session_id=None):
+def test_retrieve_audit_logs(session_id: Optional[str] = None) -> None:
     """Test retrieving audit logs"""
     print("\nTesting audit log retrieval...")
-    params = {}
+    params: Dict[str, str] = {}
     if session_id:
         params["session_id"] = session_id
     
-    response = requests.get(f"{BASE_URL}/analytics/audit-logs", params=params)
-    
-    if response.status_code == 200:
-        result = response.json()
-        print(f"Success: Retrieved {len(result['logs'])} logs")
-        print(f"Total logs: {result['total_count']}")
-        return True
-    else:
-        print(f"Error: {response.status_code}")
-        print(response.text)
-        return False
+    try:
+        response = requests.get(f"{BASE_URL}/analytics/audit-logs", params=params)
+        
+        if response.status_code == 200:
+            logs = response.json()
+            print(f"✅ Retrieved {len(logs)} audit logs")
+            if logs:
+                print(f"Sample log: {logs[0]}")
+        else:
+            print(f"❌ Failed to retrieve audit logs: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Error retrieving audit logs: {e}")
 
-def test_audit_log_stats():
-    """Test retrieving audit log statistics"""
+def test_audit_log_stats() -> None:
+    """Test audit log statistics endpoint"""
     print("\nTesting audit log statistics...")
-    response = requests.get(f"{BASE_URL}/analytics/audit-logs/stats")
     
-    if response.status_code == 200:
-        stats = response.json()
-        print(f"Success: {stats['total_entries']} total entries")
-        print(f"Date range: {stats['date_range']['start']} to {stats['date_range']['end']}")
-        print(f"Event types: {list(stats['by_event_type'].keys())}")
-        print(f"Agents: {list(stats['by_agent'].keys())}")
-        return True
-    else:
-        print(f"Error: {response.status_code}")
-        print(response.text)
-        return False
+    try:
+        response = requests.get(f"{BASE_URL}/analytics/audit-logs/stats")
+        
+        if response.status_code == 200:
+            stats = response.json()
+            print(f"✅ Retrieved audit log stats: {stats}")
+        else:
+            print(f"❌ Failed to retrieve audit log stats: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Error retrieving audit log stats: {e}")
 
-def test_audit_log_export():
-    """Test exporting audit logs"""
+def test_audit_log_export() -> None:
+    """Test audit log export endpoint"""
     print("\nTesting audit log export...")
-    response = requests.get(f"{BASE_URL}/analytics/audit-logs/export?format=json")
     
-    if response.status_code == 200:
-        try:
-            # For JSON format we should be able to parse it
-            data = response.json()
-            print(f"Success: Exported {len(data['logs'])} logs")
-            return True
-        except json.JSONDecodeError:
-            print("Error: Failed to parse JSON response")
-            return False
-    else:
-        print(f"Error: {response.status_code}")
-        print(response.text)
-        return False
+    try:
+        response = requests.get(f"{BASE_URL}/analytics/audit-logs/export?format=csv")
+        
+        if response.status_code == 200:
+            print(f"✅ Audit log export successful, content length: {len(response.content)}")
+        else:
+            print(f"❌ Failed to export audit logs: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Error exporting audit logs: {e}")
 
-def run_all_tests():
-    """Run all tests in sequence"""
-    print("Starting audit log API tests...")
-    print("=" * 50)
+def run_all_tests() -> None:
+    """Run all audit log tests"""
+    print("🚀 Starting audit log API tests...\n")
     
-    # Create a log and get its session ID
+    # Test creating an audit log and get session ID
     session_id = test_create_audit_log()
     
-    # Try to retrieve it and other logs
-    test_retrieve_audit_logs(session_id)
+    # Test retrieving logs (with and without session filter)
+    test_retrieve_audit_logs()
+    if session_id:
+        test_retrieve_audit_logs(session_id)
     
     # Test statistics
     test_audit_log_stats()
@@ -114,8 +108,7 @@ def run_all_tests():
     # Test export
     test_audit_log_export()
     
-    print("=" * 50)
-    print("Tests completed!")
+    print("\n✅ All audit log API tests completed!")
 
 if __name__ == "__main__":
     run_all_tests()

@@ -120,7 +120,7 @@ export function FloatingInputDock({
           </AnimatePresence>
 
           {/* Main Input Area */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative">
+          <motion.div initial={{ opacity: 1, y: 0 }} animate={{ opacity: 1, y: 0 }} className="relative">
             <div
               className={`bg-card/95 backdrop-blur-xl rounded-2xl border transition-all duration-200 shadow-lg ${
                 isFocused ? "border-primary shadow-xl" : "border-border"
@@ -251,7 +251,7 @@ export function FloatingInputDock({
 
           {/* Keyboard Shortcut Hint */}
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
             className="text-center mt-3"

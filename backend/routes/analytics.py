@@ -19,12 +19,12 @@ from io import StringIO
 
 try:
     # For regular app runtime
-    from ..services.supabase_client import get_supabase_client  # type: ignore
+    from backend.services.supabase_client import get_supabase_client  # type: ignore
     supabase_available = True
 except (ImportError, ValueError):
     # For tests where relative imports might fail
     try:
-        from services.supabase_client import get_supabase_client  # type: ignore
+        from backend.services.supabase_client import get_supabase_client  # type: ignore
         supabase_available = True
     except ImportError:
         # Mock function for testing/development

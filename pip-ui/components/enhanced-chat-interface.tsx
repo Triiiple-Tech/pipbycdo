@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { FloatingInputDock } from "./floating-input-dock"
-import { AdminPanel } from "./admin-panel"
+import { FloatingInputDock } from "@/components/floating-input-dock"
+import { AdminPanel } from "@/components/admin-panel"
+import { StepwisePresenter } from "@/components/stepwise-presenter"
 import { toast } from "sonner"
 
 // Import our new API services and hooks
 import { useChatSessions, useFileUpload, useMutation } from "@/hooks/useApi"
+import { useDirectSendMessage } from "@/hooks/useDirectApi"
 import { chatApi } from "@/services/chatApi"
 import { apiClient } from "@/services/api"
 import { ChatMessage, ChatSession } from "@/lib/types"
@@ -76,23 +78,11 @@ export function EnhancedChatInterface({
   // API hooks for chat functionality
   const { data: chatSessions, refetch: refetchSessions } = useChatSessions()
   const { uploadFiles } = useFileUpload()
-  
-  const sendMessageMutation = useMutation(
-    async ({ sessionId, message, fileIds = [] }: { 
-      sessionId: string; 
-      message: string; 
-      fileIds?: string[] 
-    }) => {
-      console.log("🔧 sendMessageMutation called with:", { sessionId, message, fileIds })
-      const result = await chatApi.sendMessage(sessionId, message)
-      console.log("🔧 chatApi.sendMessage result:", result)
-      return result
-    }
-  )
+  const { sendMessage: directSendMessage, loading: sendingMessage, error: sendError } = useDirectSendMessage()
 
-  console.log("🔧 sendMessageMutation state:", { 
-    loading: sendMessageMutation.loading, 
-    error: sendMessageMutation.error 
+  console.log("🔧 directSendMessage state:", { 
+    sendingMessage, 
+    sendError 
   })
 
   // Initialize current session from parent activeChat
@@ -103,23 +93,23 @@ export function EnhancedChatInterface({
     console.log("🆔 currentSessionId before:", currentSessionId)
     
     // Use the activeSessionId from parent component
-    if (activeSessionId) {
+    if (activeSessionId && activeSessionId !== currentSessionId) {
       console.log("✅ Setting currentSessionId from activeSessionId:", activeSessionId)
       setCurrentSessionId(activeSessionId)
-    } else if (chatSessions && chatSessions.length > 0 && !currentSessionId) {
+    } else if (chatSessions && chatSessions.length > 0 && !currentSessionId && !activeSessionId) {
       // Fallback to first session if no active session provided
       console.log("⚠️ No activeSessionId, falling back to first session:", chatSessions[0].id)
       setCurrentSessionId(chatSessions[0].id)
-    } else {
-      console.log("❌ No session available to set")
     }
-  }, [activeSessionId, chatSessions, currentSessionId])
+  }, [activeSessionId, chatSessions])
 
   // WebSocket message handling
   useEffect(() => {
     if (!currentSessionId) return
 
     const handleWebSocketMessage = (wsMessage: any) => {
+      console.log("📨 WebSocket message received:", wsMessage)
+      
       if (wsMessage.type === 'chat_message' && wsMessage.session_id === currentSessionId) {
         const newMessage: Message = {
           id: wsMessage.data.id,
@@ -136,7 +126,18 @@ export function EnhancedChatInterface({
           } : undefined
         }
         
-        setMessages(prev => [...prev, newMessage])
+        console.log("✅ Adding WebSocket message to state:", newMessage)
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          const exists = prev.some(msg => msg.id === newMessage.id)
+          if (exists) {
+            console.log("⚠️ Message already exists, skipping:", newMessage.id)
+            return prev
+          }
+          const newMessages = [...prev, newMessage]
+          console.log("📝 Updated messages array length:", newMessages.length)
+          return newMessages
+        })
         setIsTyping(false)
         toast.success('Response received!')
       } else if (wsMessage.type === 'processing_status') {
@@ -220,28 +221,38 @@ export function EnhancedChatInterface({
 
   // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Scroll the chat container to bottom instead of the entire page
+    const chatContainer = chatContainerRef.current?.querySelector('.overflow-y-auto')
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight
+    }
   }, [messages, isTyping])
 
-  // Load persisted messages
+  // Load persisted messages only on initial load
   useEffect(() => {
-    const saved = localStorage.getItem("pip-ai-messages")
-    if (saved && messages.length === 0) {
-      try {
-        const parsedMessages = JSON.parse(saved).map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        }))
-        setMessages(parsedMessages)
-      } catch (error) {
-        console.error("Failed to load messages:", error)
+    // Only load from localStorage if no active session and no messages
+    if (!activeSessionId && messages.length === 0) {
+      const saved = localStorage.getItem("pip-ai-messages")
+      if (saved) {
+        try {
+          const parsedMessages = JSON.parse(saved).map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }))
+          console.log("📁 Loading persisted messages:", parsedMessages.length)
+          setMessages(parsedMessages)
+        } catch (error) {
+          console.error("Failed to load messages:", error)
+          localStorage.removeItem("pip-ai-messages") // Clear corrupted data
+        }
       }
     }
-  }, [])
+  }, []) // Only run on initial mount
 
-  // Persist messages
+  // Persist messages to localStorage when messages change
   useEffect(() => {
     if (messages.length > 0) {
+      console.log("💾 Persisting messages to localStorage:", messages.length)
       localStorage.setItem("pip-ai-messages", JSON.stringify(messages))
     }
   }, [messages])
@@ -299,21 +310,22 @@ export function EnhancedChatInterface({
   }
 
   const handleSend = async () => {
-    console.log("🚀 handleSend called")
-    console.log("📝 Input value:", input)
-    console.log("📎 Attached files:", attachedFiles.length)
-    console.log("🔗 Smartsheet URLs:", smartsheetUrls.length)
-    console.log("🆔 Current session ID:", currentSessionId)
-    console.log("🌐 Is connected:", isConnected)
-    console.log("⌨️ Is typing:", isTyping)
+    console.log("🚀 FRONTEND DEBUG: handleSend called")
+    console.log("📝 FRONTEND DEBUG: Input value:", input)
+    console.log("📎 FRONTEND DEBUG: Attached files:", attachedFiles.length)
+    console.log("🔗 FRONTEND DEBUG: Smartsheet URLs:", smartsheetUrls.length)
+    console.log("🆔 FRONTEND DEBUG: Current session ID:", currentSessionId)
+    console.log("🌐 FRONTEND DEBUG: Is connected:", isConnected)
+    console.log("⌨️ FRONTEND DEBUG: Is typing:", isTyping)
+    console.log("🔧 FRONTEND DEBUG: sendingMessage state:", sendingMessage)
 
     if (!input.trim() && attachedFiles.length === 0 && smartsheetUrls.length === 0) {
-      console.log("❌ No content to send")
+      console.log("❌ FRONTEND DEBUG: No content to send")
       return
     }
     
     if (!currentSessionId) {
-      console.log("❌ No session ID available")
+      console.log("❌ FRONTEND DEBUG: No session ID available")
       toast.error("No active chat session. Please refresh the page.")
       return
     }
@@ -342,62 +354,61 @@ export function EnhancedChatInterface({
       }
     }
 
-    // Create user message locally first
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input,
-      timestamp: new Date(),
-      attachments: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
-      smartsheetData:
-        smartsheetUrls.length > 0
-          ? {
-              name: "Connected Smartsheet",
-              url: smartsheetUrls[0],
-              rows: Math.floor(Math.random() * 200) + 50,
-            }
-          : undefined,
-    }
-
-    console.log("📨 Created user message:", userMessage)
-    setMessages((prev) => [...prev, userMessage])
-    const messageContent = input // Store input before clearing
+    // Store input content before clearing (user message will come via WebSocket)
+    const messageContent = input
     setInput("")
     setAttachedFiles([])
     setSmartsheetUrls([])
     setIsTyping(true)
 
     console.log("🤖 Sending message to backend...")
-    // Send message to backend
+    // Send message to backend using direct API
     try {
-      const response = await sendMessageMutation.mutate({
-        sessionId: currentSessionId,
-        message: messageContent,
-        fileIds: uploadedFileIds
-      })
+      const response = await directSendMessage(currentSessionId, messageContent, attachedFiles)
       
       console.log("📦 Backend response:", response)
       
-      // If direct response (fallback for when WebSocket isn't working)
-      if (response) {
-        console.log("✅ Processing direct response...")
-        const agentMessage: Message = {
-          id: response.id,
-          role: response.role as "user" | "assistant",
-          content: response.content,
-          agent: response.agent_type || "Manager Agent",
-          timestamp: new Date(response.timestamp),
-          tokenCost: response.metadata?.token_cost,
-          processingTime: response.metadata?.processing_time,
-          metadata: response.metadata ? {
-            model: response.metadata.model || "gpt-4-turbo",
-            confidence: response.metadata.confidence || 0.85,
-            sources: response.metadata.sources || ["internal_knowledge"]
-          } : undefined
-        }
-        setMessages(prev => [...prev, agentMessage])
+      // Only handle direct response if WebSocket is not working
+      // In normal operation, response comes through WebSocket
+      if (response.success && response.data) {
+        console.log("✅ Direct API response received, checking if WebSocket will handle it...")
+        
+        // Wait a short time to see if WebSocket message arrives
+        setTimeout(() => {
+          setMessages(prev => {
+            // Check if WebSocket already added this message
+            const exists = prev.some(msg => msg.id === response.data.id)
+            if (!exists) {
+              console.log("🔄 WebSocket didn't handle response, adding via direct API")
+              const agentMessage: Message = {
+                id: response.data.id,
+                role: response.data.role as "user" | "assistant",
+                content: response.data.content,
+                agent: response.data.agent_type || "Manager Agent",
+                timestamp: new Date(response.data.timestamp),
+                tokenCost: response.data.metadata?.token_cost,
+                processingTime: response.data.metadata?.processing_time,
+                metadata: response.data.metadata ? {
+                  model: response.data.metadata.model || "gpt-4-turbo",
+                  confidence: response.data.metadata.confidence || 0.85,
+                  sources: response.data.metadata.sources || ["internal_knowledge"]
+                } : undefined
+              }
+              const newMessages = [...prev, agentMessage]
+              console.log("📝 Added direct API response, total messages:", newMessages.length)
+              return newMessages
+            } else {
+              console.log("✅ WebSocket already handled response, skipping direct API add")
+              return prev
+            }
+          })
+          setIsTyping(false)
+          toast.success('Response received!')
+        }, 500) // Wait 500ms for WebSocket
+      } else {
+        console.error("❌ Send message failed:", response.error)
         setIsTyping(false)
-        toast.success('Response received!')
+        toast.error(`Failed to send message: ${response.error}`)
       }
       
       // The response will come through WebSocket in normal operation
@@ -504,6 +515,12 @@ export function EnhancedChatInterface({
       >
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto space-y-6 p-6 pb-8">
+          {/* Stepwise Presenter - Protocol Agent Workflow Display */}
+          <StepwisePresenter 
+            sessionId={currentSessionId || undefined}
+            className="mb-6"
+          />
+          
           {messages.length === 0 && !isTyping && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-[#E60023] to-[#C4001A] rounded-full flex items-center justify-center mb-6 shadow-lg">
@@ -527,14 +544,24 @@ export function EnhancedChatInterface({
               </div>
             </div>
           )}
+          
+          {/* Debug message count */}
+          {messages.length > 0 && (
+            <div className="text-xs text-muted-foreground mb-4">
+              Displaying {messages.length} message{messages.length !== 1 ? 's' : ''}
+            </div>
+          )}
+          
           <AnimatePresence>
-            {messages.map((message, index) => (
+            {messages.map((message, index) => {
+              console.log("🎨 Rendering message:", message.id, message.content.substring(0, 50) + "...")
+              return (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 1, y: 0 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: 0 }}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <Card
@@ -694,12 +721,13 @@ export function EnhancedChatInterface({
                   </div>
                 </Card>
               </motion.div>
-            ))}
+              )
+            })}
           </AnimatePresence>
 
           {isTyping && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className="flex justify-start"
@@ -735,7 +763,7 @@ export function EnhancedChatInterface({
       <AnimatePresence>
         {smartsheetUrls.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed bottom-32 right-6 z-40"

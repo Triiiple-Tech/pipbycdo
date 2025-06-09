@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Frontend Console Test</title>
+</head>
+<body>
+    <h1>Frontend Console Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+
+    <script>
+        async function testFrontendAPI() {
+            const status = document.getElementById('status');
+            const results = document.getElementById('results');
+            
+            try {
+                console.log("Starting frontend API test...");
+                status.textContent = "Testing API connection...";
+                
+                const response = await fetch('http://localhost:8000/api/chat/sessions');
+                console.log("Response received:", response);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("Data parsed:", data);
+                    status.textContent = "✅ API connection successful!";
+                    results.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    status.textContent = "❌ API connection failed";
+                    results.textContent = `Status: ${response.status}`;
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                status.textContent = "❌ Connection error";
+                results.textContent = error.toString();
+            }
+        }
+
+        // Run test immediately
+        testFrontendAPI();
+    </script>
+</body>
+</html>

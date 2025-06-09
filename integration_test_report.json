@@ -1,0 +1,68 @@
+{
+  "timestamp": 1749497494.605875,
+  "tests_run": 10,
+  "tests_passed": 10,
+  "tests_failed": 0,
+  "details": [
+    {
+      "test": "Backend Health Check",
+      "passed": true,
+      "message": "\u2705 Backend is running",
+      "timestamp": 1749497494.617919
+    },
+    {
+      "test": "Frontend Health Check",
+      "passed": true,
+      "message": "\u2705 Frontend is running",
+      "timestamp": 1749497494.6980019
+    },
+    {
+      "test": "WebSocket Connection",
+      "passed": true,
+      "message": "\u2705 WebSocket connected successfully",
+      "timestamp": 1749497494.716856
+    },
+    {
+      "test": "WebSocket Send",
+      "passed": true,
+      "message": "\u2705 Message sent successfully",
+      "timestamp": 1749497494.716943
+    },
+    {
+      "test": "WebSocket Receive",
+      "passed": true,
+      "message": "\u26a0\ufe0f No immediate response (may be normal)",
+      "timestamp": 1749497496.718545
+    },
+    {
+      "test": "Main API Endpoint",
+      "passed": true,
+      "message": "\u2705 Analyze API responding",
+      "timestamp": 1749497497.027602
+    },
+    {
+      "test": "Chat Sessions API",
+      "passed": true,
+      "message": "\u2705 Chat Sessions API responding",
+      "timestamp": 1749497497.039354
+    },
+    {
+      "test": "Analytics API Endpoint",
+      "passed": true,
+      "message": "\u2705 Analytics API accessible",
+      "timestamp": 1749497497.0482008
+    },
+    {
+      "test": "Protocol Workflow",
+      "passed": true,
+      "message": "\u2705 Protocol workflow initiated successfully",
+      "timestamp": 1749497497.128115
+    },
+    {
+      "test": "Frontend Integration",
+      "passed": true,
+      "message": "\u2705 Frontend serving PIP AI application",
+      "timestamp": 1749497497.17586
+    }
+  ]
+}

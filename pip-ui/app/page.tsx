@@ -5,10 +5,12 @@ import { motion } from "framer-motion"
 import { ChatSidebar } from "@/components/chat-sidebar"
 import { EnhancedChatInterface } from "@/components/enhanced-chat-interface"
 import { AgentStatus } from "@/components/agent-status"
+import { StepwisePresenter } from "@/components/stepwise-presenter"
 import { ConfirmModal } from "@/components/confirm-modal"
 import { ChatExportModal } from "@/components/chat-export-modal"
 import { DragDropProvider } from "@/components/drag-drop-provider"
-import { useChatSessions, useAgentStatus } from "@/hooks/useApi"
+import { useChatSessions, useAgentStatus, useSimpleChatSessions } from "@/hooks/useApi"
+import { useDirectChatSessions } from "@/hooks/useDirectApi"
 import { chatApi } from "@/services/chatApi"
 import { ChatSession, ChatMessage } from "@/lib/types"
 import { toast } from "sonner"
@@ -46,17 +48,56 @@ export default function PIPAIWorkspace() {
 
   const sidebarWidth = isCollapsed ? 64 : 320
 
-  // API hooks
-  const { data: chatSessions, loading: loadingSessions, refetch: refetchSessions } = useChatSessions()
+  // Create a default project context for the demo
+  const defaultProjectId = "demo-project-123"
+
+  // API hooks - Using direct approach that bypasses useEffect
+  const { data: chatSessions, loading: loadingSessions, refetch: refetchSessions } = useDirectChatSessions()
   const { agentStatus } = useAgentStatus()
 
-  // Auto-select first chat session when sessions are loaded
+  // Also test the regular API to ensure both work
+  const { data: chatSessionsRegular } = useChatSessions(defaultProjectId)
+
+  // Debug logging for chat sessions
   useEffect(() => {
-    if (chatSessions && chatSessions.length > 0 && !activeChat) {
-      // Select the most recent chat session (first in the list)
-      setActiveChat(chatSessions[0].id)
+    console.log("=== CHAT SESSIONS DEBUG ===");
+    console.log("loadingSessions:", loadingSessions);
+    console.log("chatSessions:", chatSessions);
+    console.log("chatSessions type:", typeof chatSessions);
+    console.log("chatSessions is array:", Array.isArray(chatSessions));
+    console.log("chatSessions length:", chatSessions?.length);
+    console.log("===========================");
+  }, [chatSessions, loadingSessions]);
+
+  // Auto-select first chat session when sessions are loaded, or create one if none exist
+  useEffect(() => {
+    const initializeSession = async () => {
+      if (!loadingSessions) {
+        if (chatSessions && chatSessions.length > 0 && !activeChat) {
+          // Select the most recent chat session (first in the list)
+          console.log("🔄 Auto-selecting first chat session:", chatSessions[0].id)
+          setActiveChat(chatSessions[0].id)
+        } else if (chatSessions && chatSessions.length === 0 && !activeChat) {
+          // No sessions exist, create a default one for the demo
+          console.log("🆕 No sessions found, creating default session...")
+          try {
+            const response = await chatApi.createChatSession('Demo Chat Session')
+            if (response.success && response.data) {
+              console.log("✅ Default session created:", response.data.id)
+              setActiveChat(response.data.id)
+              refetchSessions()
+              toast.success('Welcome! Chat session ready.')
+            }
+          } catch (error) {
+            console.error('Failed to create default chat session:', error)
+            toast.error('Failed to initialize chat session')
+          }
+        }
+      }
     }
-  }, [chatSessions, activeChat])
+
+    initializeSession()
+  }, [chatSessions, activeChat, loadingSessions])
 
   // WebSocket connection monitoring
   useEffect(() => {
@@ -69,10 +110,12 @@ export default function PIPAIWorkspace() {
   useEffect(() => {
     const loadChatMessages = async () => {
       if (!activeChat) {
+        console.log("🧹 No active chat, clearing messages")
         setMessages([])
         return
       }
 
+      console.log("📥 Loading messages for chat:", activeChat)
       try {
         const response = await chatApi.getMessages(activeChat)
         if (response.success && response.data) {
@@ -91,11 +134,16 @@ export default function PIPAIWorkspace() {
               sources: msg.metadata.sources || ["internal_knowledge"]
             } : undefined
           }))
+          console.log("✅ Loaded messages:", convertedMessages.length)
           setMessages(convertedMessages)
+        } else {
+          console.log("📭 No messages found for chat:", activeChat)
+          setMessages([])
         }
       } catch (error) {
         console.error('Failed to load chat messages:', error)
         toast.error('Failed to load chat messages')
+        setMessages([]) // Clear messages on error
       }
     }
 
@@ -160,7 +208,7 @@ export default function PIPAIWorkspace() {
       <div className="min-h-screen bg-background flex text-foreground">
         {/* Connection Status Indicator */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: isConnected ? 0 : 1, y: isConnected ? -20 : 0 }}
           animate={{ opacity: isConnected ? 0 : 1, y: isConnected ? -20 : 0 }}
           className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-destructive/90 backdrop-blur-sm text-destructive-foreground px-4 py-2 rounded-lg shadow-lg border border-destructive/20"
         >
@@ -186,19 +234,96 @@ export default function PIPAIWorkspace() {
           {/* Agent Status Bar */}
           <AgentStatus />
 
-          {/* Enhanced Chat Interface */}
-          <div className="flex-1 relative">
-            <EnhancedChatInterface
-              messages={messages}
-              setMessages={setMessages}
-              isConnected={isConnected}
-              sidebarWidth={sidebarWidth}
-              showAdmin={showAdmin}
-              setShowAdmin={setShowAdmin}
-              activeSessionId={activeChat}
-            />
+          {/* Enhanced Chat Interface with Stepwise Presenter */}
+          <div className="flex-1 flex relative">
+            {/* Chat Interface */}
+            <div className="flex-1">
+              <EnhancedChatInterface
+                messages={messages}
+                setMessages={setMessages}
+                isConnected={isConnected}
+                sidebarWidth={sidebarWidth}
+                showAdmin={showAdmin}
+                setShowAdmin={setShowAdmin}
+                activeSessionId={activeChat}
+              />
+            </div>
+
+            {/* Stepwise Presenter Panel */}
+            {activeChat && (
+              <div className="w-80 border-l border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <StepwisePresenter sessionId={activeChat} className="h-full" />
+              </div>
+            )}
           </div>
-        </div>
+
+          {/* Temporary Debug Info */}
+          <div style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              background: 'rgba(0,0,0,0.8)',
+              color: 'white',
+              padding: '10px',
+              fontSize: '12px',
+              zIndex: 9999,
+              maxWidth: '300px',
+              borderRadius: '4px'
+            }}>
+              <div><strong>Debug Info:</strong></div>
+              <div>Loading: {loadingSessions ? 'true' : 'false'}</div>
+              <div>Sessions: {chatSessions ? chatSessions.length : 'null'}</div>
+              <div>Active Chat: {activeChat || 'none'}</div>
+              <div>Connected: {isConnected ? 'true' : 'false'}</div>
+              {chatSessions && chatSessions.length > 0 && (
+                <div>First Session: {chatSessions[0].name}</div>
+              )}
+              <button 
+                onClick={async () => {
+                  console.log("🔧 Manual API test button clicked");
+                  try {
+                    const response = await fetch('http://localhost:8000/api/chat/sessions');
+                    const data = await response.json();
+                    console.log("🔧 Manual fetch result:", data);
+                    alert(`Manual fetch success: ${data.length} sessions`);
+                  } catch (error: any) {
+                    console.error("🔧 Manual fetch error:", error);
+                    alert(`Manual fetch error: ${error.message}`);
+                  }
+                }}
+                style={{
+                  padding: '5px 10px',
+                  marginTop: '10px',
+                  background: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '10px'
+                }}
+              >
+                Manual API Test
+              </button>
+              <button 
+                onClick={() => {
+                  console.log("🔧 Refetch button clicked");
+                  refetchSessions();
+                }}
+                style={{
+                  padding: '5px 10px',
+                  marginTop: '5px',
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '10px'
+                }}
+              >
+                Force Refetch
+              </button>
+            </div>
+          </div>
 
         {/* Modals */}
         <ConfirmModal

@@ -18,8 +18,12 @@ class ExporterAgent(BaseAgent):
     Supports JSON, DOCX, PDF, and XLSX export formats with comprehensive formatting.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the ExporterAgent. Accept any prior output and convert it into the user's requested export format (Excel, PDF, Word, CSV, etc.). Create professional, well-formatted documents that present the estimate data, takeoff quantities, scope items, and all analysis results in a clear, organized manner suitable for client presentation or project documentation."""
+    
     def __init__(self):
         super().__init__("exporter")
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Export estimate data to the requested format."""

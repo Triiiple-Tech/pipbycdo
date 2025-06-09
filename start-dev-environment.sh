@@ -53,26 +53,25 @@ fi
 # 2. Start backend services
 print_status "Starting FastAPI backend..."
 if [ -d "backend" ]; then
-    cd backend
     if [ -f ".venv/bin/activate" ]; then
         source .venv/bin/activate
-        uvicorn src.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
+        cd backend
+        uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
         BACKEND_PID=$!
         echo $BACKEND_PID > ../logs/backend.pid
         cd ..
         print_success "Backend started (PID: $BACKEND_PID)"
     else
-        print_warning "Backend virtual environment not found"
-        cd ..
+        print_warning "Virtual environment not found in root directory"
     fi
 else
     print_warning "Backend directory not found"
 fi
 
 # 3. Start frontend development server
-print_status "Starting React frontend..."
-if [ -d "ui" ]; then
-    cd ui
+print_status "Starting Next.js frontend..."
+if [ -d "pip-ui" ]; then
+    cd pip-ui
     if [ -f "package.json" ]; then
         npm run dev > ../logs/frontend.log 2>&1 &
         FRONTEND_PID=$!
@@ -84,7 +83,7 @@ if [ -d "ui" ]; then
         cd ..
     fi
 else
-    print_warning "UI directory not found"
+    print_warning "pip-ui directory not found"
 fi
 
 # 4. Start GitHub issue monitoring
@@ -145,7 +144,7 @@ cat > development-dashboard.html << 'EOF'
                     Frontend App
                 </h3>
                 <p class="text-gray-600 mb-2">React Development Server</p>
-                <a href="http://localhost:5173" target="_blank" 
+                <a href="http://localhost:3000" target="_blank" 
                    class="text-blue-500 hover:underline">Open Application</a>
             </div>
 
@@ -192,7 +191,7 @@ cat > development-dashboard.html << 'EOF'
                    class="text-center p-3 bg-blue-500 text-white rounded hover:bg-blue-600">
                     API Docs
                 </a>
-                <a href="http://localhost:5173" target="_blank" 
+                <a href="http://localhost:3000" target="_blank" 
                    class="text-center p-3 bg-green-500 text-white rounded hover:bg-green-600">
                     Frontend
                 </a>
@@ -260,7 +259,7 @@ echo ""
 echo "Services running:"
 echo "- 🔧 MCP Server: Enhanced Copilot context"
 echo "- 🚀 Backend API: http://localhost:8000"
-echo "- 🎨 Frontend: http://localhost:5173"
+echo "- 🎨 Frontend: http://localhost:3000"
 echo "- 📊 API Docs: http://localhost:8000/docs"
 echo "- 📋 GitHub Monitor: Active"
 echo ""

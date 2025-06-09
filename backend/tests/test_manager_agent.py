@@ -24,10 +24,10 @@ def test_manager_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("backend.agents.base_agent.run_llm", mock_run_llm)
     
     # Patch the manager agent's available_agents dictionary to use our mocks
-    from backend.agents.manager_agent import _manager_agent  # type: ignore[attr-defined]
+    from backend.agents.manager_agent import manager_agent  # type: ignore[attr-defined]
     
     # Store original handlers
-    original_takeoff = _manager_agent.available_agents["takeoff"]  # type: ignore[attr-defined]
+    original_takeoff = manager_agent.available_agents["takeoff"]  # type: ignore[attr-defined]
     original_estimator = _manager_agent.available_agents["estimator"]  # type: ignore[attr-defined]
     
     # Replace with mocks

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend-Backend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { border: 1px solid #ddd; margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .loading { opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <h1>Frontend-Backend Connection Test</h1>
+    <p>This page will test the connection between the frontend environment and backend API.</p>
+
+    <div id="config-test" class="test-section info">
+        <h3>Configuration Test</h3>
+        <p><strong>Backend URL:</strong> <span id="backend-url">http://localhost:8000</span></p>
+        <p><strong>WebSocket URL:</strong> <span id="ws-url">ws://localhost:8000/api/chat/ws</span></p>
+        <p><strong>Current Frontend URL:</strong> <span id="current-url"></span></p>
+    </div>
+
+    <div id="connectivity-test" class="test-section">
+        <h3>1. Basic Connectivity Test</h3>
+        <button onclick="testConnectivity()">Test Backend Connection</button>
+        <div id="connectivity-result"></div>
+    </div>
+
+    <div id="cors-test" class="test-section">
+        <h3>2. CORS Test</h3>
+        <button onclick="testCORS()">Test CORS Headers</button>
+        <div id="cors-result"></div>
+    </div>
+
+    <div id="sessions-test" class="test-section">
+        <h3>3. Chat Sessions API Test</h3>
+        <button onclick="testChatSessions()">Load Chat Sessions</button>
+        <div id="sessions-result"></div>
+    </div>
+
+    <div id="create-session-test" class="test-section">
+        <h3>4. Create Session Test</h3>
+        <button onclick="testCreateSession()">Create Test Session</button>
+        <div id="create-session-result"></div>
+    </div>
+
+    <div id="send-message-test" class="test-section">
+        <h3>5. Send Message Test</h3>
+        <input type="text" id="session-id-input" placeholder="Session ID" style="width: 300px; padding: 5px; margin-right: 10px;">
+        <button onclick="testSendMessage()">Send Test Message</button>
+        <div id="send-message-result"></div>
+    </div>
+
+    <div id="websocket-test" class="test-section">
+        <h3>6. WebSocket Test</h3>
+        <button onclick="testWebSocket()">Test WebSocket Connection</button>
+        <button onclick="closeWebSocket()">Close WebSocket</button>
+        <div id="websocket-result"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        const WS_URL = 'ws://localhost:8000/api/chat/ws';
+        let websocket = null;
+
+        // Set current URL
+        document.getElementById('current-url').textContent = window.location.href;
+
+        async function testConnectivity() {
+            const resultDiv = document.getElementById('connectivity-result');
+            resultDiv.innerHTML = '<p>Testing backend connectivity...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                if (response.ok) {
+                    const data = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Backend is reachable!</h4>
+                            <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                            <pre>${data}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Backend responded with error</h4>
+                            <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Cannot reach backend</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Make sure the backend is running on port 8000</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCORS() {
+            const resultDiv = document.getElementById('cors-result');
+            resultDiv.innerHTML = '<p>Testing CORS headers...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chat/sessions`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                };
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ CORS test completed</h4>
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>CORS Headers:</strong></p>
+                        <pre>${JSON.stringify(corsHeaders, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ CORS test failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testChatSessions() {
+            const resultDiv = document.getElementById('sessions-result');
+            resultDiv.innerHTML = '<p>Loading chat sessions...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chat/sessions`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const sessions = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Successfully loaded chat sessions</h4>
+                            <p><strong>Number of sessions:</strong> ${sessions.length}</p>
+                            <pre>${JSON.stringify(sessions, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Failed to load sessions</h4>
+                            <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                            <pre>${errorText}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Error loading sessions</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testCreateSession() {
+            const resultDiv = document.getElementById('create-session-result');
+            resultDiv.innerHTML = '<p>Creating test session...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chat/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Frontend Test Session - ' + new Date().toISOString()
+                    })
+                });
+                
+                if (response.ok) {
+                    const session = await response.json();
+                    document.getElementById('session-id-input').value = session.id;
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Successfully created session</h4>
+                            <p><strong>Session ID:</strong> ${session.id}</p>
+                            <pre>${JSON.stringify(session, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Failed to create session</h4>
+                            <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                            <pre>${errorText}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Error creating session</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testSendMessage() {
+            const sessionId = document.getElementById('session-id-input').value;
+            const resultDiv = document.getElementById('send-message-result');
+            
+            if (!sessionId) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Please provide a session ID</h4>
+                        <p>Create a session first or enter a valid session ID</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p>Sending test message...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chat/sessions/${sessionId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: 'Hello from frontend test! Can you help me analyze a construction project?'
+                    })
+                });
+                
+                if (response.ok) {
+                    const message = await response.json();
+                    
+                    // Wait a moment for agent response to be processed
+                    setTimeout(async () => {
+                        try {
+                            const messagesResponse = await fetch(`${BACKEND_URL}/api/chat/sessions/${sessionId}/messages`);
+                            const allMessages = await messagesResponse.json();
+                            
+                            resultDiv.innerHTML = `
+                                <div class="success">
+                                    <h4>✅ Successfully sent message</h4>
+                                    <p><strong>All messages in session:</strong></p>
+                                    <pre>${JSON.stringify(allMessages, null, 2)}</pre>
+                                </div>
+                            `;
+                        } catch (error) {
+                            resultDiv.innerHTML = `
+                                <div class="info">
+                                    <h4>✅ Message sent, but couldn't fetch all messages</h4>
+                                    <p><strong>Sent message:</strong></p>
+                                    <pre>${JSON.stringify(message, null, 2)}</pre>
+                                    <p><strong>Error fetching all messages:</strong> ${error.message}</p>
+                                </div>
+                            `;
+                        }
+                    }, 2000);
+                    
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Failed to send message</h4>
+                            <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                            <pre>${errorText}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Error sending message</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function testWebSocket() {
+            const resultDiv = document.getElementById('websocket-result');
+            resultDiv.innerHTML = '<p>Connecting to WebSocket...</p>';
+            
+            try {
+                websocket = new WebSocket(WS_URL);
+                
+                websocket.onopen = function(event) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ WebSocket connected successfully</h4>
+                            <p>Connection established at: ${new Date().toLocaleTimeString()}</p>
+                        </div>
+                    `;
+                };
+                
+                websocket.onmessage = function(event) {
+                    const currentContent = resultDiv.innerHTML;
+                    resultDiv.innerHTML = currentContent + `
+                        <div class="info">
+                            <h4>📨 Message received</h4>
+                            <p><strong>Time:</strong> ${new Date().toLocaleTimeString()}</p>
+                            <pre>${event.data}</pre>
+                        </div>
+                    `;
+                };
+                
+                websocket.onerror = function(event) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ WebSocket error</h4>
+                            <p><strong>Error:</strong> ${JSON.stringify(event)}</p>
+                        </div>
+                    `;
+                };
+                
+                websocket.onclose = function(event) {
+                    const currentContent = resultDiv.innerHTML;
+                    resultDiv.innerHTML = currentContent + `
+                        <div class="info">
+                            <h4>🔌 WebSocket closed</h4>
+                            <p><strong>Code:</strong> ${event.code}, <strong>Reason:</strong> ${event.reason}</p>
+                        </div>
+                    `;
+                };
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ WebSocket connection failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function closeWebSocket() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+        }
+
+        // Run basic connectivity test on page load
+        window.addEventListener('load', function() {
+            setTimeout(testConnectivity, 1000);
+        });
+    </script>
+</body>
+</html>

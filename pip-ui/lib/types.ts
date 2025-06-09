@@ -38,7 +38,7 @@ export interface ChatSession {
   user_id: string;
   created_at: string;
   updated_at: string;
-  messages: ChatMessage[];
+  messages?: ChatMessage[];
   status: 'active' | 'completed' | 'archived';
 }
 

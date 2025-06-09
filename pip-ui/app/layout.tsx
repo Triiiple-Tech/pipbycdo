@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { Toaster } from "sonner"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ClientThemeProvider } from "@/components/client-theme-provider"
 import { Inter } from "next/font/google"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -21,10 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ClientThemeProvider>
           {children}
           <Toaster position="top-right" />
-        </ThemeProvider>
+        </ClientThemeProvider>
       </body>
     </html>
   )

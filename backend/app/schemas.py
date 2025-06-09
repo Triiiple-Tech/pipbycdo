@@ -97,6 +97,8 @@ class AppState(BaseModel):
     exported_content_type: Optional[str] = None # For the MIME type of the exported file
     
     # State management
+    status: Optional[str] = None  # Protocol status: processing, awaiting_user_input, complete, error
+    pending_user_action: Optional[str] = None  # What action is needed from user
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None

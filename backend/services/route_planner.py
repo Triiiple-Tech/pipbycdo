@@ -15,7 +15,7 @@ class RoutePlanner:
     def __init__(self):
         self.name = "route_planner"
     
-    def plan_route(self, state: AppState, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
+    async def plan_route(self, state: AppState, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
         """
         Plan the optimal route through agents based on current state and user intent.
         
@@ -27,8 +27,20 @@ class RoutePlanner:
             Dictionary containing route plan with agent sequence, skip decisions, and metadata
         """
         try:
-            # Step 1: Classify intent
-            intent_result = intent_classifier.classify_intent(state)
+            # Enhanced debugging for Smartsheet URL processing
+            if state.query and "smartsheet.com" in state.query.lower():
+                logger.info(f"DEBUG: Route planning for Smartsheet URL. Query: {state.query[:100]}...")
+                logger.info(f"DEBUG: Available agents: {list(available_agents.keys())}")
+            
+            # Step 1: Classify intent (now async)
+            intent_type, intent_metadata = await intent_classifier.classify_intent(state)
+            intent_result = {"primary_intent": intent_type.value, "metadata": intent_metadata}
+            
+            # Enhanced debugging for Smartsheet intent classification
+            if state.query and "smartsheet.com" in state.query.lower():
+                logger.info(f"DEBUG: Intent classification result: {intent_result}")
+                logger.info(f"DEBUG: Primary intent: {intent_result.get('primary_intent')}")
+                logger.info(f"DEBUG: Recommended sequence: {intent_result.get('recommended_sequence')}")
             
             # Step 2: Analyze current state capabilities
             state_analysis = self._analyze_state_capabilities(state)
@@ -36,8 +48,18 @@ class RoutePlanner:
             # Step 3: Plan optimal sequence
             route_plan = self._create_route_plan(intent_result, state_analysis, available_agents)
             
+            # Enhanced debugging for Smartsheet route plan
+            if state.query and "smartsheet.com" in state.query.lower():
+                logger.info(f"DEBUG: Initial route plan base sequence: {route_plan.get('base_sequence')}")
+                logger.info(f"DEBUG: Skip candidates: {route_plan.get('skip_candidates')}")
+            
             # Step 4: Optimize for efficiency
             optimized_plan = self._optimize_route(route_plan, state, available_agents)
+            
+            # Enhanced debugging for Smartsheet optimization result
+            if state.query and "smartsheet.com" in state.query.lower():
+                logger.info(f"DEBUG: Optimized sequence: {optimized_plan.get('sequence')}")
+                logger.info(f"DEBUG: Skipped agents: {optimized_plan.get('skipped_agents')}")
             
             logger.info(f"Route planned: {len(optimized_plan['sequence'])} agents, "
                        f"{len(optimized_plan['skipped_agents'])} skipped")
@@ -57,6 +79,8 @@ class RoutePlanner:
             "can_skip_takeoff": bool(state.takeoff_data),
             "can_skip_estimator": bool(state.estimate),
             "has_raw_files": bool(state.files and len(state.files) > 0),
+            "has_files": bool(state.files and len(state.files) > 0),
+            "has_smartsheet_url": bool(state.query and "smartsheet.com" in state.query.lower()),
             "data_freshness": self._assess_data_freshness(state),
             "processing_gaps": self._identify_processing_gaps(state)
         }
@@ -127,8 +151,21 @@ class RoutePlanner:
         if "recommended_sequence" in intent_result:
             base_sequence = intent_result["recommended_sequence"]
         else:
-            base_sequence = intent_classifier.get_agent_sequence_for_intent(primary_intent)
+            try:
+                base_sequence = intent_classifier.get_agent_sequence_for_intent(primary_intent)
+            except Exception as e:
+                logger.warning(f"Failed to get sequence for intent {primary_intent}: {e}")
+                base_sequence = ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"]
         
+        # Special handling for Smartsheet URLs without files
+        if (primary_intent == "smartsheet_integration" and 
+            state_analysis.get("has_smartsheet_url", False) and 
+            not state_analysis.get("has_files", False)):
+            
+            logger.info("DEBUG: Detected Smartsheet URL without files - adjusting sequence to start with smartsheet agent")
+            # For Smartsheet-only scenarios, start with smartsheet agent
+            base_sequence = ["smartsheet"]
+            
         # Filter to only include available agents
         available_sequence = [agent for agent in base_sequence if agent in available_agents]
         

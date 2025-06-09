@@ -14,10 +14,10 @@ import {
   ProcessingJob, 
   Template,
   SmartsheetConfig 
-} from '../lib/types';
+} from '@/lib/types';
 
-// Base configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Base configuration - Using Next.js Proxy
+const API_BASE_URL = '/api/proxy';
 
 class ApiClient {
   private baseUrl: string;
@@ -27,17 +27,24 @@ class ApiClient {
     this.baseUrl = API_BASE_URL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
+      'X-Internal-Code': 'hermes',
     };
   }
 
   // Helper method for making requests
-  private  async request<T>(
+  private async request<T>(
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${this.baseUrl}${endpoint}`;
-      console.log("API request: Making fetch to URL:", url);
+      // Convert backend endpoint to proxy endpoint
+      // Remove leading /api if present since we're routing through proxy
+      const cleanEndpoint = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+      const url = `${this.baseUrl}${cleanEndpoint}`;
+      
+      console.log("API request: Making proxied fetch to URL:", url);
+      console.log("API request: Original endpoint:", endpoint);
+      console.log("API request: Clean endpoint:", cleanEndpoint);
       console.log("API request: Options:", options);
       console.log("API request: Headers:", { ...this.defaultHeaders, ...options.headers });
       
@@ -49,17 +56,21 @@ class ApiClient {
         },
       });
 
-      console.log("API request: Fetch response received:", response);
+      console.log("API request: Proxied fetch response received:", response);
       console.log("API request: Response status:", response.status);
       console.log("API request: Response ok:", response.ok);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error("API request: Error response body:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
       console.log("API request: About to parse JSON...");
       const data = await response.json();
       console.log("API request: JSON parsed successfully:", data);
+      console.log("API request: Data type:", typeof data);
+      console.log("API request: Data is array:", Array.isArray(data));
       
       return {
         success: true,
@@ -124,14 +135,26 @@ class ApiClient {
 
   // Chat methods
   async getChatSessions(projectId?: string): Promise<ApiResponse<ChatSession[]>> {
-    console.log("apiClient.getChatSessions called with projectId:", projectId);
+    console.log("🔥 apiClient.getChatSessions called with projectId:", projectId);
     const params = projectId ? `?project_id=${projectId}` : '';
     const endpoint = `/api/chat/sessions${params}`;
-    console.log("apiClient.getChatSessions: About to call request with endpoint:", endpoint);
-    console.log("apiClient.getChatSessions: Base URL is:", this.baseUrl);
-    console.log("apiClient.getChatSessions: Full URL will be:", `${this.baseUrl}${endpoint}`);
+    console.log("🔥 apiClient.getChatSessions: About to call request with endpoint:", endpoint);
+    console.log("🔥 apiClient.getChatSessions: Base URL is:", this.baseUrl);
+    console.log("🔥 apiClient.getChatSessions: Full URL will be:", `${this.baseUrl}${endpoint}`);
+    
+    // Add extra debugging
+    console.log("🔥 apiClient.getChatSessions: Headers will be:", this.defaultHeaders);
+    console.log("🔥 apiClient.getChatSessions: About to call this.request...");
+    
     const result = await this.request<ChatSession[]>(endpoint);
-    console.log("apiClient.getChatSessions: Result received:", result);
+    
+    console.log("🔥 apiClient.getChatSessions: Result received:", result);
+    console.log("🔥 apiClient.getChatSessions: Result success:", result.success);
+    console.log("🔥 apiClient.getChatSessions: Result data:", result.data);
+    console.log("🔥 apiClient.getChatSessions: Result data type:", typeof result.data);
+    console.log("🔥 apiClient.getChatSessions: Result data is array:", Array.isArray(result.data));
+    console.log("🔥 apiClient.getChatSessions: Result data length:", result.data?.length);
+    
     return result;
   }
 

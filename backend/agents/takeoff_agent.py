@@ -17,8 +17,12 @@ class TakeoffAgent(BaseAgent):
     Uses LLM to intelligently analyze scope items and generate accurate quantities.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the TakeoffAgent. Accept scope_items and extract or calculate specific quantities, measurements, and units for each work item. Convert scope descriptions into quantifiable takeoff_data with precise measurements (square feet, linear feet, each, etc.). Include material quantities, labor hours, and any equipment needs. Focus on accuracy and industry-standard units of measure for construction takeoffs."""
+    
     def __init__(self):
         super().__init__("takeoff")
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Process scope items to generate takeoff data with quantities and units."""

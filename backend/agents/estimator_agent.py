@@ -11,8 +11,12 @@ class EstimatorAgent(BaseAgent):
     Uses LLM for intelligent pricing with fallback to placeholder pricing.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the EstimatorAgent. Use takeoff_data to generate a complete construction cost estimate. Apply current market pricing, labor rates, material costs, and overhead to each takeoff item. Create detailed estimate_data with line-item costs, subtotals by trade, and total project cost. Include material, labor, equipment, and markup. Provide realistic, market-competitive pricing for the construction industry."""
+    
     def __init__(self):
         super().__init__("estimator")
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Main processing method for the estimator agent."""

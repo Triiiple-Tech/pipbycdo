@@ -10,50 +10,75 @@ import {
   FileUpload, 
   Agent, 
   AnalyticsData 
-} from '../lib/types';
-import { apiClient } from '../services/api';
-import { chatApi } from '../services/chatApi';
+} from '@/lib/types';
+import { apiClient } from '@/services/api';
+import { chatApi } from '@/services/chatApi';
 
 // Generic hook for API requests
 export function useApiRequest<T>(
   requestFn: () => Promise<ApiResponse<T>>,
   dependencies: any[] = []
 ) {
+  console.log("🏁 useApiRequest hook initialized");
+  
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  console.log("🏁 useApiRequest state initialized - loading:", loading);
+
+  // Memoize the execute function to prevent infinite loops
   const execute = useCallback(async () => {
-    console.log("useApiRequest: Starting execute function...");
+    console.log("🚀 useApiRequest: Starting execute function...");
     setLoading(true);
     setError(null);
     
     try {
-      console.log("useApiRequest: About to call requestFn...");
+      console.log("🚀 useApiRequest: About to call requestFn...");
       const response = await requestFn();
-      console.log("useApiRequest: Response received:", response);
+      console.log("🚀 useApiRequest: Response received:", response);
       
       if (response.success && response.data) {
-        console.log("useApiRequest: Setting data:", response.data);
+        console.log("🚀 useApiRequest: Setting data:", response.data);
         setData(response.data);
-        console.log("useApiRequest: Data set successfully");
+        console.log("🚀 useApiRequest: Data set successfully");
       } else {
-        console.error("useApiRequest: API call failed:", response.error);
+        console.error("🚀 useApiRequest: API call failed:", response.error);
         setError(response.error || 'Unknown error occurred');
       }
     } catch (err) {
-      console.error("useApiRequest: Exception caught:", err);
+      console.error("🚀 useApiRequest: Exception caught:", err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
-      console.log("useApiRequest: Setting loading to false");
+      console.log("🚀 useApiRequest: Setting loading to false");
       setLoading(false);
     }
-  }, [requestFn, ...dependencies]);
+  }, dependencies);
 
+  console.log("🏁 useApiRequest execute function created");
+
+  // Fixed useEffect with proper dependencies
   useEffect(() => {
-    console.log("useApiRequest: useEffect triggered, calling execute");
-    execute();
-  }, [execute]);
+    console.log("🔄 useApiRequest: useEffect triggered!");
+    console.log("🔄 useApiRequest: dependencies:", dependencies);
+    
+    // Add a small delay to ensure component is mounted and network is ready
+    const timeoutId = setTimeout(() => {
+      console.log("🔄 useApiRequest: timeout fired!");
+      console.log("🔄 useApiRequest: About to call execute...");
+      execute().catch(err => {
+        console.error("🔄 useApiRequest: execute failed in useEffect:", err);
+      });
+    }, 500);
+
+    return () => {
+      console.log("🔄 useApiRequest: cleanup");
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execute, ...dependencies]);
+
+  console.log("🏁 useApiRequest hook returning - data:", data, "loading:", loading, "error:", error);
 
   return { data, loading, error, refetch: execute };
 }
@@ -69,15 +94,22 @@ export function useProject(id: string) {
 
 // Chat hooks
 export function useChatSessions(projectId?: string) {
-  console.log("useChatSessions called with projectId:", projectId);
+  console.log("🎯 useChatSessions called with projectId:", projectId);
   
-  return useApiRequest(
-    useCallback(() => {
-      console.log("useChatSessions requestFn called, calling apiClient.getChatSessions");
-      return apiClient.getChatSessions(projectId);
-    }, [projectId]),
-    [projectId]
-  );
+  // Create a stable function reference to prevent infinite loops
+  const requestFn = useCallback(() => {
+    console.log("🎯 useChatSessions requestFn called, calling apiClient.getChatSessions");
+    return apiClient.getChatSessions(projectId);
+  }, [projectId]);
+  
+  const result = useApiRequest(requestFn, [projectId]);
+  
+  console.log("🎯 useChatSessions returning result:", result);
+  console.log("🎯 useChatSessions data:", result.data);
+  console.log("🎯 useChatSessions loading:", result.loading);
+  console.log("🎯 useChatSessions error:", result.error);
+  
+  return result;
 }
 
 export function useChatSession(sessionId: string) {
@@ -283,4 +315,51 @@ export function useMutation<T, P = any>(
   };
 
   return { mutate, loading, error };
+}
+
+// Simplified test hook to isolate the issue
+export function useSimpleChatSessions() {
+  console.log("🧪 useSimpleChatSessions called");
+  
+  const [data, setData] = useState<ChatSession[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    console.log("🧪 Starting simple fetch...");
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/chat/sessions', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log("🧪 Simple fetch response:", response);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log("🧪 Simple fetch data:", result);
+      
+      setData(result);
+    } catch (err) {
+      console.error("🧪 Simple fetch error:", err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log("🧪 useSimpleChatSessions: useEffect triggered");
+    fetchData();
+  }, []); // Empty dependency array
+  
+  console.log("🧪 useSimpleChatSessions returning:", { data, loading, error });
+  return { data, loading, error, refetch: fetchData };
 }

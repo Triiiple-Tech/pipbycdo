@@ -9,8 +9,12 @@ class ScopeAgent(BaseAgent):
     Analyzes trade information to create specific work scope items.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the ScopeAgent. Use trade_mapping to extract all detailed scope items for each construction trade. Break down each trade into specific work items, tasks, and deliverables. Create comprehensive scope_items that detail exactly what work needs to be performed, including materials, labor, and methods for each trade identified. Focus on creating actionable, detailed scope items that can be quantified."""
+    
     def __init__(self):
         super().__init__("scope")
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Main processing method for the scope agent."""

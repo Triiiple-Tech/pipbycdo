@@ -1,9 +1,9 @@
 // Chat-specific API service for real-time messaging
 // Handles WebSocket connections and chat-related functionality
 
-import { ChatMessage, ChatSession, WebSocketMessage, ApiResponse } from '../lib/types';
-import { apiClient } from './api';
-import config from '../lib/config';
+import { ChatMessage, ChatSession, WebSocketMessage, ApiResponse } from '@/lib/types';
+import { apiClient } from '@/services/api';
+import config from '@/lib/config';
 
 export class ChatApiService {
   private websocket: WebSocket | null = null;
@@ -29,21 +29,27 @@ export class ChatApiService {
       };
 
       this.websocket.onmessage = (event) => {
+        console.log('🔥 RAW WebSocket message received:', event.data);
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('🔥 PARSED WebSocket message:', message);
           this.handleWebSocketMessage(message);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
       };
 
-      this.websocket.onclose = () => {
-        console.log('WebSocket disconnected');
-        this.handleReconnect();
+      this.websocket.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
+        // Only reconnect if it wasn't a normal closure
+        if (event.code !== 1000) {
+          this.handleReconnect();
+        }
       };
 
       this.websocket.onerror = (error) => {
         console.error('WebSocket error:', error);
+        // Don't reconnect immediately on error, let onclose handle it
       };
     } catch (error) {
       console.error('Failed to initialize WebSocket:', error);
@@ -66,9 +72,11 @@ export class ChatApiService {
   }
 
   private handleWebSocketMessage(message: WebSocketMessage) {
+    console.log('🔥 HANDLING WebSocket message:', message);
     // Notify all registered handlers
-    this.messageHandlers.forEach((handler) => {
+    this.messageHandlers.forEach((handler, id) => {
       try {
+        console.log('🔥 Calling handler for:', id);
         handler(message);
       } catch (error) {
         console.error('Error in WebSocket message handler:', error);

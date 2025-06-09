@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #E60023;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #C4001A; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #E60023;
+            background: #fff;
+        }
+        .message.user { border-left-color: #007bff; }
+        .message.assistant { border-left-color: #28a745; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 PIP AI Frontend Integration Test</h1>
+    <p>Testing direct API integration that bypasses broken React hooks</p>
+    
+    <div class="test-section">
+        <h3>🔧 Backend Connection Status</h3>
+        <div id="connection-status" class="status info">Checking...</div>
+        <button onclick="checkConnection()">Refresh Status</button>
+    </div>
+
+    <div class="grid">
+        <div class="test-section">
+            <h3>📋 Chat Sessions</h3>
+            <button onclick="loadSessions()">Load Sessions</button>
+            <div id="sessions-status" class="status info">Click to load sessions</div>
+            <div id="sessions-list"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>💬 Active Session Messages</h3>
+            <input type="text" id="session-id" placeholder="Session ID" value="f54e2df7-a6f0-484c-9024-c92ae4c61d40">
+            <button onclick="loadMessages()">Load Messages</button>
+            <div id="messages-status" class="status info">Select session and click load</div>
+            <div id="messages-list"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🚀 Send Test Message</h3>
+        <textarea id="test-message" placeholder="Enter test message" rows="3">Frontend integration test - can you confirm this message reaches the AI agent?</textarea>
+        <button onclick="sendTestMessage()">Send Message</button>
+        <div id="send-status" class="status info">Ready to send</div>
+        <div id="send-log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Full Integration Test</h3>
+        <p>This test simulates the complete frontend workflow: load sessions → send message → wait for agent response</p>
+        <button onclick="runFullTest()">Run Full Integration Test</button>
+        <div id="full-test-status" class="status info">Ready to run</div>
+        <div id="full-test-log" class="log"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        function setStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        function log(elementId, message, clear = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            if (clear) {
+                element.textContent = logMessage;
+            } else {
+                element.textContent += logMessage;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        async function checkConnection() {
+            setStatus('connection-status', 'Checking connection...', 'info');
+            try {
+                const start = Date.now();
+                const response = await fetch(`${API_BASE}/api/chat/sessions`, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const duration = Date.now() - start;
+                
+                if (response.ok) {
+                    setStatus('connection-status', `✅ Connected (${duration}ms)`, 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                setStatus('connection-status', `❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSessions() {
+            setStatus('sessions-status', 'Loading sessions...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const sessions = await response.json();
+                setStatus('sessions-status', `✅ Loaded ${sessions.length} sessions`, 'success');
+                
+                const listElement = document.getElementById('sessions-list');
+                listElement.innerHTML = sessions.map(session => `
+                    <div class="message" onclick="selectSession('${session.id}')">
+                        <strong>${session.name}</strong><br>
+                        <small>ID: ${session.id}</small><br>
+                        <small>Created: ${new Date(session.created_at).toLocaleString()}</small>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                setStatus('sessions-status', `❌ Failed: ${error.message}`, 'error');
+            }
+        }
+
+        function selectSession(sessionId) {
+            document.getElementById('session-id').value = sessionId;
+            loadMessages();
+        }
+
+        async function loadMessages() {
+            const sessionId = document.getElementById('session-id').value.trim();
+            if (!sessionId) {
+                setStatus('messages-status', '❌ Enter session ID', 'error');
+                return;
+            }
+
+            setStatus('messages-status', 'Loading messages...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/messages`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const messages = await response.json();
+                setStatus('messages-status', `✅ Loaded ${messages.length} messages`, 'success');
+                
+                const listElement = document.getElementById('messages-list');
+                const recentMessages = messages.slice(-5); // Show last 5 messages
+                listElement.innerHTML = recentMessages.map(msg => `
+                    <div class="message ${msg.role}">
+                        <strong>${msg.role.toUpperCase()}</strong>
+                        ${msg.agent_type ? `(${msg.agent_type})` : ''}<br>
+                        ${msg.content}<br>
+                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
+                        ${msg.metadata?.token_cost ? `<br><small>Tokens: ${msg.metadata.token_cost}</small>` : ''}
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                setStatus('messages-status', `❌ Failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendTestMessage() {
+            const sessionId = document.getElementById('session-id').value.trim();
+            const message = document.getElementById('test-message').value.trim();
+            
+            if (!sessionId || !message) {
+                setStatus('send-status', '❌ Enter session ID and message', 'error');
+                return;
+            }
+
+            setStatus('send-status', 'Sending message...', 'info');
+            log('send-log', 'Sending test message...', true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: message })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                setStatus('send-status', '✅ Message sent successfully', 'success');
+                log('send-log', `✅ User message sent: ${result.id}`);
+                
+                // Wait for agent response
+                log('send-log', '⏳ Waiting for agent response...');
+                setTimeout(async () => {
+                    try {
+                        const messagesResponse = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/messages`);
+                        const messages = await messagesResponse.json();
+                        const latestAgent = messages.reverse().find(m => m.role === 'assistant');
+                        
+                        if (latestAgent && new Date(latestAgent.timestamp) > new Date(result.timestamp)) {
+                            log('send-log', `✅ Agent responded: ${latestAgent.content.substring(0, 100)}...`);
+                            log('send-log', `🤖 Agent: ${latestAgent.agent_type}, Tokens: ${latestAgent.metadata?.token_cost}`);
+                            setStatus('send-status', '✅ Full conversation completed', 'success');
+                        } else {
+                            log('send-log', '⚠️ No new agent response detected');
+                        }
+                    } catch (error) {
+                        log('send-log', `❌ Failed to check agent response: ${error.message}`);
+                    }
+                }, 3000);
+                
+            } catch (error) {
+                setStatus('send-status', `❌ Failed: ${error.message}`, 'error');
+                log('send-log', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function runFullTest() {
+            setStatus('full-test-status', 'Running full integration test...', 'info');
+            log('full-test-log', '🧪 Starting full integration test...', true);
+            
+            try {
+                // Step 1: Check connection
+                log('full-test-log', '1️⃣ Checking backend connection...');
+                await checkConnection();
+                
+                // Step 2: Load sessions
+                log('full-test-log', '2️⃣ Loading chat sessions...');
+                await loadSessions();
+                
+                // Step 3: Load messages from current session
+                log('full-test-log', '3️⃣ Loading existing messages...');
+                await loadMessages();
+                
+                // Step 4: Send test message
+                log('full-test-log', '4️⃣ Sending test message...');
+                const testMessage = `Full integration test - ${new Date().toISOString()}`;
+                document.getElementById('test-message').value = testMessage;
+                await sendTestMessage();
+                
+                setStatus('full-test-status', '✅ Full test completed', 'success');
+                log('full-test-log', '🎉 Full integration test completed successfully!');
+                
+            } catch (error) {
+                setStatus('full-test-status', `❌ Test failed: ${error.message}`, 'error');
+                log('full-test-log', `❌ Full test failed: ${error.message}`);
+            }
+        }
+
+        // Auto-run connection check on load
+        window.addEventListener('load', () => {
+            setTimeout(checkConnection, 1000);
+        });
+    </script>
+</body>
+</html>

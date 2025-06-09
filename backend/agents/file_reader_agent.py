@@ -10,9 +10,13 @@ class FileReaderAgent(BaseAgent):
     Uses the multimodal file parser for comprehensive file processing.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the FileReaderAgent. Your sole task is to extract all readable content from all files uploaded by the user. You must process every file type (PDF, Excel, Word, images, drawings, etc.) and extract all text, data, tables, and any visible content. Return the complete extracted content as processed_files_content in a structured format that shows what was extracted from each file. Focus on thoroughness - capture everything that can be read or interpreted from the files."""
+    
     def __init__(self):
         super().__init__("file_reader")
         self.file_parser = MultimodalFileParser()
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Main processing method for the file reader agent."""

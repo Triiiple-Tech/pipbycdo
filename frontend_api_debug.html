@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #28a745;
+        }
+        .error {
+            background: #dc3545;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Debug Tool - Chat Sessions Loading Issue</h1>
+    
+    <div class="container">
+        <h2>Backend Connection Tests</h2>
+        <button class="button" onclick="testBackendHealth()">Test Backend Health</button>
+        <button class="button" onclick="testChatSessionsDirectly()">Test Chat Sessions API Directly</button>
+        <button class="button" onclick="testWithProjectId()">Test With Project ID</button>
+        <button class="button" onclick="testCORSHeaders()">Test CORS Headers</button>
+        <div id="backendStatus"></div>
+        <div id="backendLog" class="log"></div>
+    </div>
+
+    <div class="container">
+        <h2>Frontend API Client Simulation</h2>
+        <button class="button" onclick="testApiClientRequest()">Test API Client Request Method</button>
+        <button class="button" onclick="testGetChatSessions()">Test getChatSessions Method</button>
+        <button class="button" onclick="testWithConsoleLogging()">Test With Enhanced Logging</button>
+        <div id="apiClientStatus"></div>
+        <div id="apiClientLog" class="log"></div>
+    </div>
+
+    <div class="container">
+        <h2>Data Analysis</h2>
+        <button class="button" onclick="compareResponses()">Compare Direct vs API Client</button>
+        <button class="button" onclick="testDataTransformation()">Test Data Transformation</button>
+        <div id="analysisStatus"></div>
+        <div id="analysisLog" class="log"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let directResponse = null;
+        let apiClientResponse = null;
+
+        function logToDiv(divId, message) {
+            const logDiv = document.getElementById(divId);
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(divId, message, isSuccess = true) {
+            const statusDiv = document.getElementById(divId);
+            statusDiv.className = `status ${isSuccess ? 'success' : 'error'}`;
+            statusDiv.textContent = message;
+        }
+
+        // Backend connection tests
+        async function testBackendHealth() {
+            logToDiv('backendLog', 'Testing backend health...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.text();
+                logToDiv('backendLog', `Health check response: ${response.status} - ${data}`);
+                setStatus('backendStatus', 'Backend is responding', true);
+            } catch (error) {
+                logToDiv('backendLog', `Health check failed: ${error.message}`);
+                setStatus('backendStatus', 'Backend connection failed', false);
+            }
+        }
+
+        async function testChatSessionsDirectly() {
+            logToDiv('backendLog', 'Testing chat sessions API directly...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat/sessions`);
+                logToDiv('backendLog', `Direct API response status: ${response.status}`);
+                logToDiv('backendLog', `Direct API response ok: ${response.ok}`);
+                logToDiv('backendLog', `Direct API response headers: ${JSON.stringify([...response.headers.entries()])}`);
+                
+                const data = await response.json();
+                directResponse = data;
+                logToDiv('backendLog', `Direct API response data: ${JSON.stringify(data, null, 2)}`);
+                logToDiv('backendLog', `Direct API data type: ${typeof data}, is array: ${Array.isArray(data)}, length: ${data?.length || 'N/A'}`);
+                
+                setStatus('backendStatus', `Direct API returned ${Array.isArray(data) ? data.length : 0} sessions`, true);
+            } catch (error) {
+                logToDiv('backendLog', `Direct API test failed: ${error.message}`);
+                setStatus('backendStatus', 'Direct API test failed', false);
+            }
+        }
+
+        async function testWithProjectId() {
+            logToDiv('backendLog', 'Testing chat sessions with project_id parameter...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat/sessions?project_id=undefined`);
+                const data = await response.json();
+                logToDiv('backendLog', `With project_id=undefined: ${JSON.stringify(data, null, 2)}`);
+                
+                const response2 = await fetch(`${API_BASE_URL}/api/chat/sessions?project_id=null`);
+                const data2 = await response2.json();
+                logToDiv('backendLog', `With project_id=null: ${JSON.stringify(data2, null, 2)}`);
+                
+                const response3 = await fetch(`${API_BASE_URL}/api/chat/sessions`);
+                const data3 = await response3.json();
+                logToDiv('backendLog', `Without project_id: ${JSON.stringify(data3, null, 2)}`);
+                
+                setStatus('backendStatus', 'Project ID parameter tests completed', true);
+            } catch (error) {
+                logToDiv('backendLog', `Project ID test failed: ${error.message}`);
+                setStatus('backendStatus', 'Project ID test failed', false);
+            }
+        }
+
+        async function testCORSHeaders() {
+            logToDiv('backendLog', 'Testing CORS headers...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat/sessions`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'http://localhost:3003'
+                    }
+                });
+                
+                logToDiv('backendLog', `CORS test response status: ${response.status}`);
+                logToDiv('backendLog', `CORS headers: ${JSON.stringify([...response.headers.entries()])}`);
+                
+                const data = await response.json();
+                logToDiv('backendLog', `CORS test data: ${JSON.stringify(data, null, 2)}`);
+                
+                setStatus('backendStatus', 'CORS test completed', true);
+            } catch (error) {
+                logToDiv('backendLog', `CORS test failed: ${error.message}`);
+                setStatus('backendStatus', 'CORS test failed', false);
+            }
+        }
+
+        // API Client simulation
+        class ApiClientSimulation {
+            constructor() {
+                this.baseUrl = API_BASE_URL;
+                this.defaultHeaders = {
+                    'Content-Type': 'application/json',
+                };
+            }
+
+            async request(endpoint, options = {}) {
+                try {
+                    const url = `${this.baseUrl}${endpoint}`;
+                    logToDiv('apiClientLog', `API request: Making fetch to URL: ${url}`);
+                    logToDiv('apiClientLog', `API request: Options: ${JSON.stringify(options)}`);
+                    logToDiv('apiClientLog', `API request: Headers: ${JSON.stringify({ ...this.defaultHeaders, ...options.headers })}`);
+                    
+                    const response = await fetch(url, {
+                        ...options,
+                        headers: {
+                            ...this.defaultHeaders,
+                            ...options.headers,
+                        },
+                    });
+                    
+                    logToDiv('apiClientLog', `API request: Fetch response received: ${response.status}`);
+                    logToDiv('apiClientLog', `API request: Response ok: ${response.ok}`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    logToDiv('apiClientLog', `API request: About to parse JSON...`);
+                    const data = await response.json();
+                    logToDiv('apiClientLog', `API request: JSON parsed successfully: ${JSON.stringify(data, null, 2)}`);
+                    logToDiv('apiClientLog', `API request: Data type: ${typeof data}`);
+                    logToDiv('apiClientLog', `API request: Data is array: ${Array.isArray(data)}`);
+                    
+                    return {
+                        success: true,
+                        data,
+                    };
+                } catch (error) {
+                    logToDiv('apiClientLog', `API request failed: ${error.message}`);
+                    return {
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Unknown error',
+                    };
+                }
+            }
+
+            async getChatSessions(projectId) {
+                logToDiv('apiClientLog', `apiClient.getChatSessions called with projectId: ${projectId}`);
+                const params = projectId ? `?project_id=${projectId}` : '';
+                const endpoint = `/api/chat/sessions${params}`;
+                logToDiv('apiClientLog', `apiClient.getChatSessions: About to call request with endpoint: ${endpoint}`);
+                logToDiv('apiClientLog', `apiClient.getChatSessions: Base URL is: ${this.baseUrl}`);
+                logToDiv('apiClientLog', `apiClient.getChatSessions: Full URL will be: ${this.baseUrl}${endpoint}`);
+                const result = await this.request(endpoint);
+                logToDiv('apiClientLog', `apiClient.getChatSessions: Result received: ${JSON.stringify(result, null, 2)}`);
+                return result;
+            }
+        }
+
+        const apiClientSim = new ApiClientSimulation();
+
+        async function testApiClientRequest() {
+            logToDiv('apiClientLog', 'Testing API client request method...');
+            try {
+                const result = await apiClientSim.request('/api/chat/sessions');
+                logToDiv('apiClientLog', `API client request result: ${JSON.stringify(result, null, 2)}`);
+                setStatus('apiClientStatus', `API client request ${result.success ? 'succeeded' : 'failed'}`, result.success);
+            } catch (error) {
+                logToDiv('apiClientLog', `API client request test failed: ${error.message}`);
+                setStatus('apiClientStatus', 'API client request test failed', false);
+            }
+        }
+
+        async function testGetChatSessions() {
+            logToDiv('apiClientLog', 'Testing getChatSessions method...');
+            try {
+                // Test with undefined (mimicking frontend behavior)
+                const result1 = await apiClientSim.getChatSessions(undefined);
+                apiClientResponse = result1;
+                logToDiv('apiClientLog', `getChatSessions(undefined) result: ${JSON.stringify(result1, null, 2)}`);
+                
+                // Test with null
+                const result2 = await apiClientSim.getChatSessions(null);
+                logToDiv('apiClientLog', `getChatSessions(null) result: ${JSON.stringify(result2, null, 2)}`);
+                
+                // Test without parameter
+                const result3 = await apiClientSim.getChatSessions();
+                logToDiv('apiClientLog', `getChatSessions() result: ${JSON.stringify(result3, null, 2)}`);
+                
+                setStatus('apiClientStatus', 'getChatSessions tests completed', true);
+            } catch (error) {
+                logToDiv('apiClientLog', `getChatSessions test failed: ${error.message}`);
+                setStatus('apiClientStatus', 'getChatSessions test failed', false);
+            }
+        }
+
+        async function testWithConsoleLogging() {
+            logToDiv('apiClientLog', 'Testing with enhanced console logging...');
+            
+            // Override console methods to capture logs
+            const originalLog = console.log;
+            const originalError = console.error;
+            
+            console.log = (...args) => {
+                logToDiv('apiClientLog', `CONSOLE.LOG: ${args.join(' ')}`);
+                originalLog.apply(console, args);
+            };
+            
+            console.error = (...args) => {
+                logToDiv('apiClientLog', `CONSOLE.ERROR: ${args.join(' ')}`);
+                originalError.apply(console, args);
+            };
+            
+            try {
+                const result = await apiClientSim.getChatSessions(undefined);
+                logToDiv('apiClientLog', `Enhanced logging result: ${JSON.stringify(result, null, 2)}`);
+            } finally {
+                // Restore console methods
+                console.log = originalLog;
+                console.error = originalError;
+            }
+            
+            setStatus('apiClientStatus', 'Enhanced logging test completed', true);
+        }
+
+        // Analysis
+        async function compareResponses() {
+            logToDiv('analysisLog', 'Comparing direct API vs API client responses...');
+            
+            if (!directResponse || !apiClientResponse) {
+                logToDiv('analysisLog', 'Please run both direct API and API client tests first');
+                setStatus('analysisStatus', 'Missing test data', false);
+                return;
+            }
+            
+            logToDiv('analysisLog', `Direct response: ${JSON.stringify(directResponse, null, 2)}`);
+            logToDiv('analysisLog', `API client response: ${JSON.stringify(apiClientResponse, null, 2)}`);
+            
+            const directIsArray = Array.isArray(directResponse);
+            const apiClientIsArray = Array.isArray(apiClientResponse?.data);
+            
+            logToDiv('analysisLog', `Direct response is array: ${directIsArray}`);
+            logToDiv('analysisLog', `API client response data is array: ${apiClientIsArray}`);
+            
+            if (directIsArray && apiClientIsArray) {
+                logToDiv('analysisLog', `Direct response length: ${directResponse.length}`);
+                logToDiv('analysisLog', `API client response data length: ${apiClientResponse.data.length}`);
+                
+                if (directResponse.length === apiClientResponse.data.length) {
+                    logToDiv('analysisLog', 'Response lengths match - data is consistent');
+                    setStatus('analysisStatus', 'Responses are consistent', true);
+                } else {
+                    logToDiv('analysisLog', 'Response lengths differ - investigating...');
+                    setStatus('analysisStatus', 'Response length mismatch', false);
+                }
+            } else {
+                logToDiv('analysisLog', 'Response types differ - this is the issue!');
+                setStatus('analysisStatus', 'Response type mismatch found', false);
+            }
+        }
+
+        async function testDataTransformation() {
+            logToDiv('analysisLog', 'Testing data transformation and response structure...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat/sessions`);
+                const textResponse = await response.text();
+                logToDiv('analysisLog', `Raw response text: ${textResponse}`);
+                
+                const jsonResponse = JSON.parse(textResponse);
+                logToDiv('analysisLog', `Parsed JSON: ${JSON.stringify(jsonResponse, null, 2)}`);
+                logToDiv('analysisLog', `JSON type: ${typeof jsonResponse}`);
+                logToDiv('analysisLog', `JSON constructor: ${jsonResponse.constructor.name}`);
+                
+                if (Array.isArray(jsonResponse)) {
+                    logToDiv('analysisLog', `Array length: ${jsonResponse.length}`);
+                    if (jsonResponse.length > 0) {
+                        logToDiv('analysisLog', `First element: ${JSON.stringify(jsonResponse[0], null, 2)}`);
+                        logToDiv('analysisLog', `First element keys: ${Object.keys(jsonResponse[0])}`);
+                    }
+                }
+                
+                setStatus('analysisStatus', 'Data transformation test completed', true);
+            } catch (error) {
+                logToDiv('analysisLog', `Data transformation test failed: ${error.message}`);
+                setStatus('analysisStatus', 'Data transformation test failed', false);
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testBackendHealth();
+                setTimeout(() => {
+                    testChatSessionsDirectly();
+                }, 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

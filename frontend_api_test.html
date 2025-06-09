@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Frontend API Test</h1>
+    <div id="results"></div>
+    <script>
+        // Test the same API calls the frontend makes
+        const apiUrl = 'http://localhost:8000';
+        const resultsDiv = document.getElementById('results');
+        
+        function log(message) {
+            console.log(message);
+            resultsDiv.innerHTML += '<p>' + message + '</p>';
+        }
+        
+        async function testApi() {
+            try {
+                log('Testing API calls...');
+                
+                // Test 1: Get chat sessions
+                const response = await fetch(`${apiUrl}/api/chat/sessions`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const sessions = await response.json();
+                log(`✅ Sessions loaded: ${sessions.length} sessions`);
+                log(`📝 Sessions: ${JSON.stringify(sessions, null, 2)}`);
+                
+                // Test if sessions have messages field
+                const firstSession = sessions[0];
+                if (firstSession) {
+                    log(`🔍 First session structure: ${JSON.stringify(Object.keys(firstSession))}`);
+                    log(`📋 Has messages field: ${firstSession.hasOwnProperty('messages')}`);
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                console.error('API Test Error:', error);
+            }
+        }
+        
+        // Run test
+        testApi();
+    </script>
+</body>
+</html>

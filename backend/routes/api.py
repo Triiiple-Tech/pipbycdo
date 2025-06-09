@@ -83,7 +83,7 @@ def run_analysis_task(task_id: str, state_dict: Dict[str, Any]) -> None:
         except Exception as db_error:
             print(f"Warning: Could not update task in Supabase ({db_error}), using local storage")
             # Fallback to local storage
-            from .local_storage import update_task_locally
+            from backend.routes.local_storage import update_task_locally
             update_task_locally(task_id, update_data)
             
     except Exception as e:
@@ -101,7 +101,7 @@ def run_analysis_task(task_id: str, state_dict: Dict[str, Any]) -> None:
         except Exception as db_error:
             print(f"Warning: Could not update task error in Supabase ({db_error}), using local storage")
             # Fallback to local storage
-            from .local_storage import update_task_locally
+            from backend.routes.local_storage import update_task_locally
             update_task_locally(task_id, error_data)
 
 @router.post("/analyze", response_model=AnalyzeTaskSubmissionResponse)
@@ -187,7 +187,7 @@ async def analyze(
     except Exception as e:
         print(f"Warning: Could not insert task into Supabase ({e}), using local storage")
         # Fallback to local storage when Supabase is not available
-        from .local_storage import store_task_locally
+        from backend.routes.local_storage import store_task_locally
         store_task_locally(task_id, {
             "id": task_id,
             "status": "pending",
@@ -214,7 +214,7 @@ async def get_task_status(task_id: str):
         print(f"Error fetching task from Supabase: {e}")
         # Try to get task from local storage as fallback
         try:
-            from .local_storage import get_task_locally
+            from backend.routes.local_storage import get_task_locally
             task_data = get_task_locally(task_id)
             if task_data:
                 print(f"Task {task_id} retrieved from local storage")

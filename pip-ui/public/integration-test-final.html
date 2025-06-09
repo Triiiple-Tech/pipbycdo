@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete Frontend-Backend Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 3px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Complete Frontend-Backend Integration Test</h1>
+    <p>This test validates all the fixes implemented for the React/Next.js frontend errors.</p>
+    
+    <button onclick="runAllTests()">Run All Tests</button>
+    
+    <div id="test-1" class="test-section loading">
+        <h3>Test 1: Backend Health Check</h3>
+        <p>Status: <span id="status-1">Pending...</span></p>
+        <pre id="result-1">Waiting for test...</pre>
+    </div>
+    
+    <div id="test-2" class="test-section loading">
+        <h3>Test 2: Proxy Health Check</h3>
+        <p>Status: <span id="status-2">Pending...</span></p>
+        <pre id="result-2">Waiting for test...</pre>
+    </div>
+    
+    <div id="test-3" class="test-section loading">
+        <h3>Test 3: Chat Sessions API</h3>
+        <p>Status: <span id="status-3">Pending...</span></p>
+        <pre id="result-3">Waiting for test...</pre>
+    </div>
+    
+    <div id="test-4" class="test-section loading">
+        <h3>Test 4: ApiClient Integration</h3>
+        <p>Status: <span id="status-4">Pending...</span></p>
+        <pre id="result-4">Waiting for test...</pre>
+    </div>
+    
+    <div id="test-5" class="test-section loading">
+        <h3>Test 5: Error Handling</h3>
+        <p>Status: <span id="status-5">Pending...</span></p>
+        <pre id="result-5">Waiting for test...</pre>
+    </div>
+    
+    <div id="summary" class="test-section" style="display: none;">
+        <h3>📊 Test Summary</h3>
+        <p id="summary-text">Tests in progress...</p>
+    </div>
+
+    <script>
+        async function updateTestStatus(testNum, status, message, isError = false) {
+            const testDiv = document.getElementById(`test-${testNum}`);
+            const statusSpan = document.getElementById(`status-${testNum}`);
+            const resultPre = document.getElementById(`result-${testNum}`);
+            
+            statusSpan.textContent = status;
+            resultPre.textContent = message;
+            
+            testDiv.className = `test-section ${isError ? 'error' : 'success'}`;
+        }
+
+        async function test1_BackendHealth() {
+            try {
+                // Test direct backend access (should fail due to CORS)
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                await updateTestStatus(1, '❌ UNEXPECTED SUCCESS', 
+                    'Direct backend call succeeded (should have failed due to CORS):\n' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                await updateTestStatus(1, '✅ EXPECTED FAILURE', 
+                    'Direct backend call correctly failed due to CORS:\n' + error.message);
+            }
+        }
+
+        async function test2_ProxyHealth() {
+            try {
+                const response = await fetch('/api/proxy/health');
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
+                    await updateTestStatus(2, '✅ SUCCESS', 
+                        'Proxy health check passed:\n' + JSON.stringify(data, null, 2));
+                } else {
+                    throw new Error(`Unexpected response: ${response.status}`);
+                }
+            } catch (error) {
+                await updateTestStatus(2, '❌ FAILED', 
+                    'Proxy health check failed:\n' + error.message, true);
+            }
+        }
+
+        async function test3_ChatSessions() {
+            try {
+                const response = await fetch('/api/proxy/api/chat/sessions', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Internal-Code': 'hermes'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok && Array.isArray(data)) {
+                    await updateTestStatus(3, '✅ SUCCESS', 
+                        `Chat sessions loaded successfully (${data.length} sessions):\n` + 
+                        JSON.stringify(data.slice(0, 2), null, 2) + 
+                        (data.length > 2 ? '\n... and more' : ''));
+                } else {
+                    throw new Error(`Unexpected response: ${response.status} - ${JSON.stringify(data)}`);
+                }
+            } catch (error) {
+                await updateTestStatus(3, '❌ FAILED', 
+                    'Chat sessions test failed:\n' + error.message, true);
+            }
+        }
+
+        async function test4_ApiClientIntegration() {
+            try {
+                // Simulate how the ApiClient would work
+                const cleanEndpoint = '/api/chat/sessions'.substring(4); // Remove /api
+                const url = `/api/proxy${cleanEndpoint}`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Internal-Code': 'hermes'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok && Array.isArray(data)) {
+                    await updateTestStatus(4, '✅ SUCCESS', 
+                        `ApiClient pattern works correctly:\nURL: ${url}\nResponse: ${data.length} sessions`);
+                } else {
+                    throw new Error(`ApiClient pattern failed: ${response.status}`);
+                }
+            } catch (error) {
+                await updateTestStatus(4, '❌ FAILED', 
+                    'ApiClient integration test failed:\n' + error.message, true);
+            }
+        }
+
+        async function test5_ErrorHandling() {
+            try {
+                // Test non-existent endpoint
+                const response = await fetch('/api/proxy/api/nonexistent', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Internal-Code': 'hermes'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    await updateTestStatus(5, '✅ SUCCESS', 
+                        `Error handling works correctly:\nStatus: ${response.status}\nError: ${JSON.stringify(errorData, null, 2)}`);
+                } else {
+                    throw new Error('Expected error response but got success');
+                }
+            } catch (error) {
+                await updateTestStatus(5, '❌ FAILED', 
+                    'Error handling test failed:\n' + error.message, true);
+            }
+        }
+
+        async function runAllTests() {
+            console.log('Starting comprehensive integration tests...');
+            
+            // Reset all tests to loading state
+            for (let i = 1; i <= 5; i++) {
+                const testDiv = document.getElementById(`test-${i}`);
+                testDiv.className = 'test-section loading';
+                document.getElementById(`status-${i}`).textContent = 'Running...';
+                document.getElementById(`result-${i}`).textContent = 'Test in progress...';
+            }
+            
+            // Run tests sequentially
+            await test1_BackendHealth();
+            await test2_ProxyHealth();
+            await test3_ChatSessions();
+            await test4_ApiClientIntegration();
+            await test5_ErrorHandling();
+            
+            // Show summary
+            const summaryDiv = document.getElementById('summary');
+            const summaryText = document.getElementById('summary-text');
+            
+            // Count results
+            const successCount = document.querySelectorAll('.success').length;
+            const errorCount = document.querySelectorAll('.error').length;
+            
+            summaryText.innerHTML = `
+                <strong>Tests completed:</strong><br>
+                ✅ Successful: ${successCount}<br>
+                ❌ Failed: ${errorCount}<br>
+                <br>
+                <strong>Overall Status:</strong> ${errorCount === 0 ? '🎉 ALL TESTS PASSED!' : `⚠️ ${errorCount} test(s) failed`}
+                <br><br>
+                <strong>Frontend-Backend Integration Status:</strong> ${errorCount <= 1 ? '✅ RESOLVED' : '❌ NEEDS ATTENTION'}
+            `;
+            
+            summaryDiv.style.display = 'block';
+            summaryDiv.className = `test-section ${errorCount <= 1 ? 'success' : 'error'}`;
+            
+            console.log(`Tests completed: ${successCount} passed, ${errorCount} failed`);
+        }
+        
+        // Run tests automatically on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

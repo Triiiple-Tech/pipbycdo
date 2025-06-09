@@ -10,6 +10,9 @@ class TradeMapperAgent(BaseAgent):
     Uses keyword matching and pattern recognition to identify relevant trades.
     """
     
+    # Brain prompt from Autonomous Agentic Manager Protocol
+    BRAIN_PROMPT = """You are the TradeMapperAgent. Your job is to analyze processed_files_content and identify which construction trades are represented in the documents. Map content to CSI (Construction Specifications Institute) divisions and create a comprehensive trade_mapping that shows what trades/divisions are present, where they're mentioned, and their relevance to the project. Return detailed trade_mapping data that organizes the file content by construction discipline."""
+    
     # CSI divisions mapping with keywords
     CSI_DIVISIONS_KEYWORDS = {
         "010000": ["general requirements", "summary of work", "allowances"],
@@ -39,6 +42,7 @@ class TradeMapperAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("trade_mapper")
+        self.brain_prompt = self.BRAIN_PROMPT
     
     def process(self, state: AppState) -> AppState:
         """Main processing method for the trade mapper agent."""

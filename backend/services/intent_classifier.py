@@ -1,262 +1,315 @@
-# backend/services/intent_classifier.py
-from typing import Dict, List, Optional, Any
-from backend.app.schemas import AppState
-from backend.services.gpt_handler import run_llm
+"""
+Intent Classification Service for PIP AI Autonomous Agentic Manager Protocol
+
+This service detects and logs intent from user input and determines the required
+agent sequence based on the available data and user requirements.
+"""
+
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, timezone
+import re
 import logging
-import json
+from enum import Enum
+
+from backend.app.schemas import AppState, AgentTraceEntry
+from backend.services.gpt_handler import run_llm
 
 logger = logging.getLogger(__name__)
 
+class IntentType(Enum):
+    """Supported intent types for the autonomous agentic workflow"""
+    FILE_ANALYSIS = "file_analysis"
+    SMARTSHEET_INTEGRATION = "smartsheet_integration"
+    FULL_ESTIMATION = "full_estimation"
+    TRADE_SPECIFIC_ANALYSIS = "trade_specific_analysis"
+    EXPORT_ONLY = "export_only"
+    RERUN_AGENT = "rerun_agent"
+    QUALITY_REVIEW = "quality_review"
+    UNKNOWN = "unknown"
+
 class IntentClassifier:
     """
-    LLM-powered intent classification for smart routing decisions.
-    Analyzes user queries and content to determine optimal agent sequences.
+    Advanced intent classification system that detects user intent and determines
+    the optimal agent workflow sequence.
     """
     
-    # Define possible intents and their characteristics
-    INTENT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
-        "full_estimation": {
-            "description": "Complete estimation pipeline from files to final estimate",
-            "required_agents": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"],
-            "optional_agents": ["exporter"],
-            "confidence_threshold": 0.7
-        },
-        "file_analysis": {
-            "description": "Analyze and extract information from uploaded files",
-            "required_agents": ["file_reader", "trade_mapper"],
-            "optional_agents": ["scope"],
-            "confidence_threshold": 0.8
-        },
-        "export_existing": {
-            "description": "Export existing estimate data to specified format",
-            "required_agents": ["exporter"],
-            "optional_agents": [],
-            "confidence_threshold": 0.9
-        },
-        "quick_estimate": {
-            "description": "Generate estimate from text description without files",
-            "required_agents": ["estimator"],
-            "optional_agents": ["exporter"],
-            "confidence_threshold": 0.7
-        },
-        "scope_analysis": {
-            "description": "Extract scope items from existing trade mapping",
-            "required_agents": ["scope", "takeoff"],
-            "optional_agents": ["estimator"],
-            "confidence_threshold": 0.8
-        },
-        "trade_identification": {
-            "description": "Identify construction trades from content",
-            "required_agents": ["trade_mapper"],
-            "optional_agents": ["scope"],
-            "confidence_threshold": 0.8
-        }
-    }
-    
     def __init__(self):
-        self.name = "intent_classifier"
+        self.logger = logging.getLogger(f"{__name__}.IntentClassifier")
+        
+        # Intent detection patterns
+        self.intent_patterns = {
+            IntentType.SMARTSHEET_INTEGRATION: [
+                r"smartsheet",
+                r"sheet\s*(?:url|link)",
+                r"app\.smartsheet\.com",
+                r"push\s+(?:to|back)\s+smartsheet",
+                r"sync\s+(?:with|to)\s+smartsheet"
+            ],
+            IntentType.FULL_ESTIMATION: [
+                r"estimate.*project",
+                r"full\s+estimation",
+                r"complete\s+analysis",
+                r"analyze.*plans?",
+                r"cost\s+estimate",
+                r"takeoff.*estimate"
+            ],
+            IntentType.FILE_ANALYSIS: [
+                r"analyze.*files?",
+                r"extract.*(?:text|content)",
+                r"read.*(?:pdf|document)",
+                r"process.*files?"
+            ],
+            IntentType.TRADE_SPECIFIC_ANALYSIS: [
+                r"(?:electrical|plumbing|hvac|mechanical|structural)",
+                r"trade\s+specific",
+                r"focus\s+on.*trade",
+                r"only.*(?:electrical|plumbing|hvac)"
+            ],
+            IntentType.EXPORT_ONLY: [
+                r"export.*(?:xlsx|pdf|csv|json)",
+                r"download.*estimate",
+                r"generate.*report",
+                r"create.*spreadsheet"
+            ],
+            IntentType.RERUN_AGENT: [
+                r"re-?run",
+                r"try\s+again",
+                r"restart.*agent",
+                r"rewind"
+            ],
+            IntentType.QUALITY_REVIEW: [
+                r"review.*quality",
+                r"qa\s+check",
+                r"validate.*estimate",
+                r"check.*accuracy"
+            ]
+        }
     
-    def classify_intent(self, state: AppState) -> Dict[str, Any]:
+    async def classify_intent(self, state: AppState) -> Tuple[IntentType, Dict[str, Any]]:
         """
-        Classify user intent based on query, files, and existing state data.
-        Returns intent classification with confidence scores and routing recommendations.
+        Classify user intent based on query, files, and context.
+        
+        Returns:
+            Tuple of (IntentType, metadata dict with additional context)
         """
         try:
-            # Gather context for classification
-            context = self._gather_context(state)
+            # Extract analysis inputs
+            query = state.query or ""
+            files_count = len(state.files) if state.files else 0
+            has_smartsheet_url = bool(self._extract_smartsheet_url(query))
+            metadata = state.metadata or {}
             
-            # Use LLM for intent classification
-            classification_result = self._llm_classify_intent(context, state)
+            # Debug logging
+            logger.info(f"INTENT DEBUG: query='{query[:100]}...', files_count={files_count}, has_smartsheet_url={has_smartsheet_url}")
             
-            # Enhance with rule-based validation
-            enhanced_result = self._enhance_with_rules(classification_result, state)
+            # Pattern-based classification
+            pattern_intent = self._classify_by_patterns(query)
             
-            logger.info(f"Intent classified as: {enhanced_result.get('primary_intent')} "
-                       f"(confidence: {enhanced_result.get('confidence', 0):.2f})")
+            # LLM-enhanced classification for complex cases
+            llm_intent = await self._classify_with_llm(state)
             
-            return enhanced_result
-            
-        except Exception as e:
-            logger.error(f"Error in intent classification: {str(e)}")
-            # Fallback to rule-based classification
-            return self._fallback_classification(state)
-    
-    def _gather_context(self, state: AppState) -> Dict[str, Any]:
-        """Gather relevant context for intent classification."""
-        context: Dict[str, Any] = {
-            "has_query": bool(state.query and state.query.strip()),
-            "query_text": state.query or "",
-            "has_files": bool(state.files and len(state.files) > 0),
-            "file_count": len(state.files) if state.files else 0,
-            "file_types": [],
-            "has_existing_data": {},
-            "metadata": state.metadata or {}
-        }
-        
-        # Analyze file types if present
-        if state.files:
-            for file_data in state.files:
-                if hasattr(file_data, 'filename') and file_data.filename:
-                    file_ext = file_data.filename.split('.')[-1].lower() if '.' in file_data.filename else 'unknown'
-                    context["file_types"].append(file_ext)
-        
-        # Check for existing processed data
-        context["has_existing_data"] = {
-            "processed_files_content": bool(state.processed_files_content),
-            "trade_mapping": bool(state.trade_mapping),
-            "scope_items": bool(state.scope_items),
-            "takeoff_data": bool(state.takeoff_data),
-            "estimate": bool(state.estimate)
-        }
-        
-        return context
-    
-    def _llm_classify_intent(self, context: Dict[str, Any], state: AppState) -> Dict[str, Any]:
-        """Use LLM to classify user intent based on context."""
-        
-        # Create prompt for intent classification
-        prompt = f"""
-You are an expert at analyzing construction project requests to determine user intent.
-
-CONTEXT:
-- User Query: "{context.get('query_text', 'No query provided')}"
-- Has Files: {context.get('has_files', False)}
-- File Count: {context.get('file_count', 0)}
-- File Types: {context.get('file_types', [])}
-- Existing Data: {context.get('has_existing_data', {})}
-
-POSSIBLE INTENTS:
-{json.dumps(self.INTENT_DEFINITIONS, indent=2)}
-
-TASK:
-Analyze the context and classify the user's intent. Consider:
-1. What the user is explicitly asking for
-2. What data is already available vs. what's missing
-3. The most efficient path to fulfill the request
-
-Return a JSON response with:
-{{
-    "primary_intent": "intent_name",
-    "confidence": 0.0-1.0,
-    "reasoning": "explanation of why this intent was chosen",
-    "secondary_intents": ["alternative_intent1", "alternative_intent2"],
-    "recommended_sequence": ["agent1", "agent2", "agent3"],
-    "skip_reasons": {{"agent_name": "reason_to_skip"}}
-}}
-
-Focus on efficiency - if data already exists that can fulfill the request, recommend skipping redundant processing steps.
-"""
-        
-        try:
-            response = run_llm(
-                prompt=prompt,
-                model=state.llm_config.model if state.llm_config else "gpt-4o",
-                api_key=state.llm_config.api_key if state.llm_config else None,
-                agent_name=self.name
+            # Combine results with priority logic
+            final_intent, confidence = self._combine_classifications(
+                pattern_intent, llm_intent, has_smartsheet_url, files_count
             )
             
-            # Parse JSON response
-            result = json.loads(response)
+            # Extract additional metadata
+            intent_metadata = {
+                "confidence": confidence,
+                "pattern_match": pattern_intent != IntentType.UNKNOWN,
+                "llm_classified": llm_intent != IntentType.UNKNOWN,
+                "smartsheet_url": self._extract_smartsheet_url(query),
+                "trade_focus": self._extract_trade_focus(query),
+                "export_format": self._extract_export_format(query),
+                "files_detected": files_count,
+                "classified_at": datetime.now(timezone.utc).isoformat()
+            }
             
-            # Validate the response structure
-            if not all(key in result for key in ["primary_intent", "confidence", "reasoning"]):
-                raise ValueError("Invalid LLM response structure")
+            # Log the classification result
+            self._log_classification(state, final_intent, intent_metadata)
             
-            return result
+            return final_intent, intent_metadata
             
         except Exception as e:
-            logger.error(f"LLM intent classification failed: {str(e)}")
-            raise
+            self.logger.error(f"Intent classification failed: {str(e)}")
+            return IntentType.UNKNOWN, {"error": str(e)}
     
-    def _enhance_with_rules(self, llm_result: Dict[str, Any], state: AppState) -> Dict[str, Any]:
-        """Enhance LLM classification with rule-based validation and adjustments."""
+    def _classify_by_patterns(self, query: str) -> IntentType:
+        """Classify intent using regex patterns"""
+        query_lower = query.lower()
         
-        primary_intent = llm_result.get("primary_intent")
-        confidence = llm_result.get("confidence", 0)
+        for intent_type, patterns in self.intent_patterns.items():
+            for pattern in patterns:
+                if re.search(pattern, query_lower):
+                    return intent_type
         
-        # Rule-based adjustments
-        adjusted_result = llm_result.copy()
-        
-        # Rule 1: If estimate exists and export keywords in query, force export intent
-        if (state.estimate and state.query and 
-            any(keyword in state.query.lower() for keyword in ["export", "download", "save", "format"])):
-            adjusted_result.update({
-                "primary_intent": "export_existing",
-                "confidence": max(confidence, 0.85),
-                "rule_applied": "export_existing_data_rule"
+        return IntentType.UNKNOWN
+    
+    async def _classify_with_llm(self, state: AppState) -> IntentType:
+        """Use LLM for sophisticated intent classification"""
+        try:
+            prompt = f"""
+            Classify the user's intent for a construction document analysis system.
+            
+            User Query: "{state.query}"
+            Files Uploaded: {len(state.files) if state.files else 0}
+            Context: {state.metadata}
+            
+            Available Intent Types:
+            - file_analysis: User wants to analyze uploaded files
+            - smartsheet_integration: User wants to work with Smartsheet data
+            - full_estimation: User wants a complete cost estimation workflow
+            - trade_specific_analysis: User wants analysis for specific trades
+            - export_only: User only wants to export existing data
+            - rerun_agent: User wants to re-run a previous step
+            - quality_review: User wants quality assurance review
+            - unknown: Intent is unclear
+            
+            Respond with ONLY the intent type (e.g., "full_estimation").
+            """
+            
+            # Update LLM config for intent classification
+            llm_config = state.llm_config or {}
+            llm_config.update({
+                "model": "gpt-4o-mini",
+                "params": {"temperature": 0.1, "max_tokens": 50}
             })
-        
-        # Rule 2: If no files and no existing data, limit to query-based operations
-        elif not state.files and not any(state.processed_files_content or {}):
-            if primary_intent in ["full_estimation", "file_analysis"]:
-                adjusted_result.update({
-                    "primary_intent": "quick_estimate",
-                    "confidence": max(confidence, 0.7),
-                    "rule_applied": "no_files_fallback_rule"
-                })
-        
-        # Rule 3: If files exist but user asks for specific partial processing
-        elif (state.files and state.query and 
-              any(keyword in state.query.lower() for keyword in ["trade", "mapping", "identify"])):
-            if primary_intent == "full_estimation":
-                adjusted_result.update({
-                    "primary_intent": "trade_identification",
-                    "confidence": max(confidence, 0.8),
-                    "rule_applied": "partial_processing_rule"
-                })
-        
-        # Rule 4: Confidence boost for clear patterns
-        query_lower = (state.query or "").lower()
-        if any(keyword in query_lower for keyword in ["estimate", "cost", "pricing"]):
-            if primary_intent in ["full_estimation", "quick_estimate"]:
-                adjusted_result["confidence"] = min(adjusted_result["confidence"] + 0.1, 1.0)
-        
-        return adjusted_result
+            
+            response = await run_llm(prompt, llm_config)
+            
+            # Parse LLM response
+            intent_str = response.strip().lower()
+            for intent_type in IntentType:
+                if intent_type.value == intent_str:
+                    return intent_type
+            
+            return IntentType.UNKNOWN
+            
+        except Exception as e:
+            self.logger.error(f"LLM intent classification failed: {str(e)}")
+            return IntentType.UNKNOWN
     
-    def _fallback_classification(self, state: AppState) -> Dict[str, Any]:
-        """Fallback rule-based classification when LLM fails."""
-        logger.warning("Using fallback rule-based intent classification")
+    def _combine_classifications(
+        self, 
+        pattern_intent: IntentType, 
+        llm_intent: IntentType, 
+        has_smartsheet_url: bool,
+        files_count: int
+    ) -> Tuple[IntentType, float]:
+        """Combine pattern and LLM classifications with confidence scoring"""
         
-        # Simple rule-based classification
-        if state.estimate and state.query and "export" in state.query.lower():
-            return {
-                "primary_intent": "export_existing",
-                "confidence": 0.8,
-                "reasoning": "Fallback: Export keywords detected with existing estimate",
-                "recommended_sequence": ["exporter"],
-                "fallback_used": True
-            }
-        elif state.files and len(state.files) > 0:
-            return {
-                "primary_intent": "full_estimation",
-                "confidence": 0.7,
-                "reasoning": "Fallback: Files present, assuming full estimation needed",
-                "recommended_sequence": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"],
-                "fallback_used": True
-            }
-        else:
-            return {
-                "primary_intent": "quick_estimate",
-                "confidence": 0.6,
-                "reasoning": "Fallback: No clear indicators, defaulting to quick estimate",
-                "recommended_sequence": ["estimator"],
-                "fallback_used": True
-            }
+        # High confidence scenarios
+        if pattern_intent == llm_intent and pattern_intent != IntentType.UNKNOWN:
+            return pattern_intent, 0.95
+        
+        # Smartsheet URL detected - high confidence for smartsheet integration
+        if has_smartsheet_url:
+            logger.info(f"INTENT DEBUG: Smartsheet URL detected, returning SMARTSHEET_INTEGRATION")
+            return IntentType.SMARTSHEET_INTEGRATION, 0.90
+        
+        # Files uploaded without specific intent - default to full estimation
+        if files_count > 0 and pattern_intent == IntentType.UNKNOWN and llm_intent == IntentType.UNKNOWN:
+            return IntentType.FULL_ESTIMATION, 0.75
+        
+        # Pattern match has priority over LLM for specific patterns
+        if pattern_intent != IntentType.UNKNOWN:
+            return pattern_intent, 0.80
+        
+        # LLM classification as fallback
+        if llm_intent != IntentType.UNKNOWN:
+            return llm_intent, 0.70
+        
+        # Default to unknown with low confidence
+        return IntentType.UNKNOWN, 0.10
     
-    def get_agent_sequence_for_intent(self, intent: str, context: Optional[Dict[str, Any]] = None) -> List[str]:
-        """Get the recommended agent sequence for a given intent."""
-        if intent not in self.INTENT_DEFINITIONS:
-            logger.warning(f"Unknown intent: {intent}, using full pipeline")
-            return ["file_reader", "trade_mapper", "scope", "takeoff", "estimator", "exporter"]
+    def _extract_smartsheet_url(self, query: str) -> Optional[str]:
+        """Extract Smartsheet URL from query"""
+        smartsheet_pattern = r'https?://app\.smartsheet\.com/[^\s]+'
+        match = re.search(smartsheet_pattern, query)
+        result = match.group(0) if match else None
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"_extract_smartsheet_url: query='{query[:100]}...', pattern='{smartsheet_pattern}', result='{result}'")
+        return result
+    
+    def _extract_trade_focus(self, query: str) -> Optional[str]:
+        """Extract specific trade focus from query"""
+        trades = ["electrical", "plumbing", "hvac", "mechanical", "structural", "demo", "demolition"]
+        query_lower = query.lower()
         
-        intent_def = self.INTENT_DEFINITIONS[intent]
-        sequence = intent_def["required_agents"].copy()
+        for trade in trades:
+            if trade in query_lower:
+                return trade.title()
         
-        # Add optional agents based on context or user preferences
-        if context and context.get("include_optional", True):
-            sequence.extend(intent_def["optional_agents"])
+        return None
+    
+    def _extract_export_format(self, query: str) -> Optional[str]:
+        """Extract desired export format from query"""
+        formats = ["xlsx", "pdf", "csv", "json"]
+        query_lower = query.lower()
         
-        return sequence
+        for fmt in formats:
+            if fmt in query_lower:
+                return fmt.upper()
+        
+        return None
+    
+    def _log_classification(self, state: AppState, intent: IntentType, metadata: Dict[str, Any]):
+        """Log the classification result to agent trace"""
+        trace_entry = AgentTraceEntry(
+            agent="intent_classifier",
+            decision=f"Classified intent as {intent.value}",
+            model="gpt-4o-mini",
+            level="info",
+            timestamp=datetime.now(timezone.utc)
+        )
+        
+        if hasattr(state, 'agent_trace') and state.agent_trace is not None:
+            state.agent_trace.append(trace_entry)
+        
+        self.logger.info(f"Intent classified: {intent.value} (confidence: {metadata.get('confidence', 0)})")
 
-# Create singleton instance
+    def get_agent_sequence_for_intent(self, intent: str) -> List[str]:
+        """
+        Get the recommended agent sequence for a given intent.
+        
+        Args:
+            intent: Intent type (e.g., "full_estimation", "export_only")
+            
+        Returns:
+            List of agent names in recommended execution order
+        """
+        sequences = {
+            "full_estimation": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"],
+            "file_analysis": ["file_reader", "trade_mapper"],
+            "smartsheet_integration": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator", "smartsheet"],
+            "trade_specific_analysis": ["file_reader", "trade_mapper", "scope"],
+            "export_only": ["exporter"],
+            "rerun_agent": [],  # Determined by specific rerun request
+            "quality_review": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"],
+            "unknown": ["file_reader", "trade_mapper", "scope", "takeoff", "estimator"]
+        }
+        
+        return sequences.get(intent, sequences["unknown"])
+
+    @property 
+    def name(self) -> str:
+        """Name property for compatibility with tests"""
+        return "intent_classifier"
+
+    @property
+    def INTENT_DEFINITIONS(self) -> Dict[str, str]:
+        """Intent definitions for compatibility with tests"""
+        return {
+            "full_estimation": "Complete cost estimation workflow from files to final estimate",
+            "export_existing": "Export existing data without additional processing",
+            "file_analysis": "Analyze uploaded files for content extraction",
+            "smartsheet_integration": "Integrate with Smartsheet for data sync",
+            "trade_specific_analysis": "Focus on specific construction trades",
+            "rerun_agent": "Re-run a previous agent step",
+            "quality_review": "Review and validate existing estimates"
+        }
+
+# Global instance
 intent_classifier = IntentClassifier()

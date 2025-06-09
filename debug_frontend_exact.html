@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Debug - Exact Call Pattern</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; }
+        .error { border-color: #e74c3c; background: #fdf2f2; }
+        .success { border-color: #27ae60; background: #f2fdf2; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Debug - Exact Call Pattern</h1>
+    <p>This page tests the exact API call pattern that the frontend React app should be making.</p>
+
+    <button onclick="testGetChatSessions()">Test Get Chat Sessions (No Project ID)</button>
+    <button onclick="testGetChatSessionsWithProject()">Test Get Chat Sessions (With Project ID)</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <div id="results"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Exact replica of the frontend API client request method
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                const url = `${API_BASE_URL}${endpoint}`;
+                console.log("API request: Making fetch to URL:", url);
+                console.log("API request: Options:", options);
+                
+                const defaultHeaders = {
+                    'Content-Type': 'application/json',
+                };
+                
+                const headers = {
+                    ...defaultHeaders,
+                    ...options.headers,
+                };
+                
+                console.log("API request: Headers:", headers);
+                
+                const response = await fetch(url, {
+                    ...options,
+                    headers: headers,
+                });
+
+                console.log("API request: Fetch response received:", response);
+                console.log("API request: Response status:", response.status);
+                console.log("API request: Response ok:", response.ok);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                console.log("API request: About to parse JSON...");
+                const data = await response.json();
+                console.log("API request: JSON parsed successfully:", data);
+                console.log("API request: Data type:", typeof data);
+                console.log("API request: Data is array:", Array.isArray(data));
+                
+                return {
+                    success: true,
+                    data,
+                };
+            } catch (error) {
+                console.error('API request failed:', error);
+                return {
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        }
+
+        // Exact replica of getChatSessions method
+        async function getChatSessions(projectId) {
+            console.log("getChatSessions called with projectId:", projectId);
+            const params = projectId ? `?project_id=${projectId}` : '';
+            const endpoint = `/api/chat/sessions${params}`;
+            console.log("getChatSessions: About to call request with endpoint:", endpoint);
+            console.log("getChatSessions: Base URL is:", API_BASE_URL);
+            console.log("getChatSessions: Full URL will be:", `${API_BASE_URL}${endpoint}`);
+            const result = await makeRequest(endpoint);
+            console.log("getChatSessions: Result received:", result);
+            return result;
+        }
+
+        function addResult(title, content, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${content}</pre>
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testGetChatSessions() {
+            try {
+                console.log("=== Testing getChatSessions without project ID ===");
+                const result = await getChatSessions();
+                
+                if (result.success) {
+                    addResult('✅ getChatSessions() Success', JSON.stringify(result, null, 2));
+                    console.log("SUCCESS: Data received:", result.data);
+                    console.log("SUCCESS: Data length:", result.data?.length);
+                } else {
+                    addResult('❌ getChatSessions() Failed', JSON.stringify(result, null, 2), true);
+                    console.error("FAILED: Error:", result.error);
+                }
+            } catch (error) {
+                addResult('❌ getChatSessions() Exception', error.toString(), true);
+                console.error("EXCEPTION:", error);
+            }
+        }
+
+        async function testGetChatSessionsWithProject() {
+            try {
+                console.log("=== Testing getChatSessions with project ID ===");
+                const result = await getChatSessions('test-project-id');
+                
+                if (result.success) {
+                    addResult('✅ getChatSessions(projectId) Success', JSON.stringify(result, null, 2));
+                    console.log("SUCCESS: Data received:", result.data);
+                    console.log("SUCCESS: Data length:", result.data?.length);
+                } else {
+                    addResult('❌ getChatSessions(projectId) Failed', JSON.stringify(result, null, 2), true);
+                    console.error("FAILED: Error:", result.error);
+                }
+            } catch (error) {
+                addResult('❌ getChatSessions(projectId) Exception', error.toString(), true);
+                console.error("EXCEPTION:", error);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            console.log("Page loaded, running auto-test...");
+            testGetChatSessions();
+        });
+    </script>
+</body>
+</html>

@@ -258,6 +258,7 @@ async def send_chat_message(session_id: str, message: ChatMessageCreate):
         # Send WebSocket notification for user message
         await broadcast_message(session_id, {
             "type": "chat_message",
+            "session_id": session_id,
             "data": message_data,
             "timestamp": timestamp
         })
@@ -305,6 +306,7 @@ async def send_chat_message(session_id: str, message: ChatMessageCreate):
                 # Send WebSocket notification for agent response
                 await broadcast_message(session_id, {
                     "type": "chat_message",
+                    "session_id": session_id,
                     "data": agent_message_data,
                     "timestamp": agent_timestamp
                 })
@@ -336,6 +338,7 @@ async def send_chat_message(session_id: str, message: ChatMessageCreate):
             
             await broadcast_message(session_id, {
                 "type": "chat_message", 
+                "session_id": session_id,
                 "data": fallback_message_data,
                 "timestamp": fallback_timestamp
             })

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Connectivity Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Connectivity Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            resultsDiv.appendChild(div);
+            console.log(`[${type.toUpperCase()}] ${message.replace(/<[^>]*>/g, '')}`);
+        }
+        
+        async function testAPI() {
+            addResult('Starting Frontend API Connectivity Test...', 'info');
+            
+            // Test 1: Basic fetch to /api/chat/sessions
+            try {
+                addResult('Test 1: Fetching chat sessions...', 'info');
+                
+                const response = await fetch('http://localhost:8000/api/chat/sessions', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    mode: 'cors',
+                    cache: 'no-cache',
+                });
+                
+                addResult(`Response status: ${response.status} ${response.statusText}`, 'info');
+                addResult(`Response headers: <pre>${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}</pre>`, 'info');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ SUCCESS: Received ${data.length} chat sessions`, 'success');
+                    addResult(`Data preview: <pre>${JSON.stringify(data.slice(0, 1), null, 2)}</pre>`, 'info');
+                } else {
+                    addResult(`❌ FAILED: HTTP ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ FAILED: ${error.message}`, 'error');
+                addResult(`Error details: <pre>${JSON.stringify({
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                }, null, 2)}</pre>`, 'error');
+            }
+            
+            // Test 2: Test agent status endpoint
+            try {
+                addResult('Test 2: Fetching agent status...', 'info');
+                
+                const response = await fetch('http://localhost:8000/api/agents/status', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    mode: 'cors',
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ SUCCESS: Agent status retrieved`, 'success');
+                    addResult(`Agent data: <pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                } else {
+                    addResult(`❌ FAILED: HTTP ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ FAILED: ${error.message}`, 'error');
+            }
+            
+            // Test 3: Environment check
+            addResult('Test 3: Environment check...', 'info');
+            addResult(`Current URL: ${window.location.href}`, 'info');
+            addResult(`User Agent: ${navigator.userAgent}`, 'info');
+            addResult(`Network connection: ${navigator.onLine ? 'Online' : 'Offline'}`, 'info');
+            
+            addResult('All tests completed!', 'info');
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', testAPI);
+    </script>
+</body>
+</html>

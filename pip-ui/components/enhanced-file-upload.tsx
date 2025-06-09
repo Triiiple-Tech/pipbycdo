@@ -23,7 +23,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { useDragDrop } from "./drag-drop-provider"
+import { useDragDrop } from "@/components/drag-drop-provider"
 
 interface UploadedFile {
   id: string

@@ -1,0 +1,153 @@
+{
+  "agentCanUpdateSnapshot": true,
+  "projectName": "PIP AI - Autonomous Agentic Manager Protocol",
+  "projectType": "full-stack",
+  "architecture": "FastAPI + Next.js 15 + WebSocket + Multi-Agent System",
+  
+  "services": {
+    "backend": {
+      "install": "python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt",
+      "start": "cd backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+      "test": "cd backend && python -m pytest tests/ -v",
+      "port": 8000,
+      "url": "http://localhost:8000"
+    },
+    "frontend": {
+      "install": "cd pip-ui && npm install",
+      "start": "cd pip-ui && npm run dev",
+      "test": "cd pip-ui && npm run type-check && npm run lint",
+      "port": 3000,
+      "url": "http://localhost:3000"
+    }
+  },
+  
+  "quickStart": {
+    "install": "./start_dev_environment.sh install",
+    "start": "./start_dev_environment.sh start",
+    "status": "./start_dev_environment.sh status",
+    "test": "./start_dev_environment.sh test",
+    "logs": "./start_dev_environment.sh logs",
+    "stop": "./start_dev_environment.sh stop"
+  },
+  
+  "keyDirectories": {
+    "backend": {
+      "path": "./backend",
+      "description": "FastAPI backend with 7 AI agents",
+      "keyFiles": [
+        "app/main.py",
+        "services/agent_router.py",
+        "routes/chat.py",
+        "agents/manager_agent.py"
+      ]
+    },
+    "frontend": {
+      "path": "./pip-ui",
+      "description": "Next.js 15 frontend with TypeScript",
+      "keyFiles": [
+        "components/enhanced-chat-interface.tsx",
+        "hooks/useApi.ts",
+        "services/chatApi.ts"
+      ]
+    }
+  },
+  
+  "currentIssues": {
+    "critical": [
+      {
+        "name": "File Upload Disconnect",
+        "description": "Files uploaded don't trigger agent pipeline",
+        "file": "pip-ui/components/enhanced-chat-interface.tsx",
+        "lines": "491-656",
+        "priority": "HIGH",
+        "fix": "Use unified FormData endpoint for files+messages"
+      },
+      {
+        "name": "Smartsheet Pipeline Break", 
+        "description": "File selection doesn't continue to analysis",
+        "file": "backend/services/agent_router.py",
+        "lines": "580-632", 
+        "priority": "HIGH",
+        "fix": "Ensure pipeline continuation after files_ready_for_analysis"
+      },
+      {
+        "name": "Backend Syntax Error",
+        "description": "Unclosed parenthesis preventing startup",
+        "file": "backend/services/agent_router.py", 
+        "line": "270",
+        "priority": "URGENT",
+        "fix": "Close the await self.broadcast_agent_conversation( call"
+      }
+    ]
+  },
+  
+  "systemArchitecture": {
+    "agents": [
+      "ManagerAgent - Orchestrates workflow",
+      "FileReaderAgent - Extracts content from files", 
+      "TradeMapperAgent - Categorizes construction trades",
+      "ScopeAgent - Identifies scope items",
+      "TakeoffAgent - Calculates quantities",
+      "EstimatorAgent - Generates cost estimates",
+      "SmartsheetAgent - Handles Smartsheet integration"
+    ],
+    "communication": "WebSocket real-time updates",
+    "database": "Supabase",
+    "apis": ["OpenAI GPT-4o/o1/o3", "Smartsheet API"]
+  },
+  
+  "importPatterns": {
+    "backend": "from backend.module.submodule import Class (absolute imports)",
+    "frontend": "import { Component } from '@/components/ui/component'"
+  },
+  
+  "codePatterns": {
+    "backend": {
+      "async": "Always use async/await for I/O operations",
+      "errors": "Comprehensive try/catch with logging",
+      "types": "Full type hints with Pydantic models",
+      "websocket": "Use broadcast_message for real-time updates"
+    },
+    "frontend": {
+      "state": "useState for local, custom hooks for API",
+      "websocket": "chatApi.onMessage for real-time updates", 
+      "types": "Strict TypeScript with clear interfaces",
+      "styling": "Tailwind CSS with shadcn/ui components"
+    }
+  },
+  
+  "debugging": {
+    "backend": "tail -f backend/backend.log | grep -i 'agent\\|pipeline\\|processing'",
+    "frontend": "Browser DevTools Console + Network tab",
+    "websocket": "Check WebSocket messages in DevTools"
+  },
+  
+  "environment": {
+    "python": "3.13",
+    "node": "22.15+",
+    "venv": ".venv (in project root)",
+    "envFile": ".env (in project root)"
+  },
+  
+  "testingStrategy": {
+    "backend": "pytest with async patterns and mocked LLM calls",
+    "frontend": "React Testing Library with WebSocket mocking",
+    "integration": "./start_dev_environment.sh test",
+    "validation": "File upload → agent processing → real-time updates"
+  },
+  
+  "successCriteria": [
+    "Files uploaded via drag-drop trigger agent processing",
+    "Smartsheet file selection triggers full analysis pipeline", 
+    "Real-time progress updates via WebSocket",
+    "Complete end-to-end workflow working",
+    "All 7 agents processing in sequence"
+  ],
+  
+  "devTips": {
+    "startup": "Backend must start before frontend for WebSocket connection",
+    "errors": "Check backend logs first, then frontend console",
+    "websocket": "WebSocket URL is ws://localhost:8000/api/chat/ws",
+    "agents": "Agent pipeline: FileReader → TradeMapper → Scope → Takeoff → Estimator → Exporter"
+  }
+}

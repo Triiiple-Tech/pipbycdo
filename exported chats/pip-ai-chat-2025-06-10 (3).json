@@ -1,0 +1,69 @@
+{
+  "messages": [
+    {
+      "id": "cc08cba8-c087-4e93-9637-21154f1217b0",
+      "role": "user",
+      "content": "https://app.smartsheet.com/sheets/xchRwXGQ8HJ4pM3Fh73MM6X2H56Mhw64f4pGmPm1?view=grid",
+      "timestamp": "2025-06-10T22:01:04.138Z",
+      "metadata": {
+        "model": "gpt-4-turbo",
+        "confidence": 0.85,
+        "sources": [
+          "internal_knowledge"
+        ]
+      }
+    },
+    {
+      "id": "f5736eca-f6fc-4bc6-b90d-67d40d8d3d8b",
+      "role": "assistant",
+      "content": "� **Smartsheet Connected**\n\n**Sheet ID**: `xchRwXGQ8HJ4pM3Fh73MM6X2H56Mhw64f4pGmPm1`\n**Files Found**: 5 construction document(s)\n\n<ui-component type=\"file-picker\" sheet-id=\"xchRwXGQ8HJ4pM3Fh73MM6X2H56Mhw64f4pGmPm1\" files-count=\"5\">\n[\n  {\n    \"id\": 3197889041698692,\n    \"name\": \"test.pdf\",\n    \"size\": \"6 KB\",\n    \"type\": \"pdf\",\n    \"icon\": \"\\ud83d\\udcc4\"\n  },\n  {\n    \"id\": 6109549712674692,\n    \"name\": \"test.pdf\",\n    \"size\": \"6 KB\",\n    \"type\": \"pdf\",\n    \"icon\": \"\\ud83d\\udcc4\"\n  },\n  {\n    \"id\": 3637331204280196,\n    \"name\": \"Columbia MD CDO Estimate.xlsx\",\n    \"size\": \"35 KB\",\n    \"type\": \"xlsx\",\n    \"icon\": \"\\ud83d\\udcca\"\n  },\n  {\n    \"id\": 5889131017965444,\n    \"name\": \"Columbia MD GC Bid HCC Rev. Proposal - Venture X - 8.9.22.pdf\",\n    \"size\": \"703 KB\",\n    \"type\": \"pdf\",\n    \"icon\": \"\\ud83d\\udcc4\"\n  },\n  {\n    \"id\": 6004316370145156,\n    \"name\": \"Columbia MD Permit Plans Venture X Full Permit Plan set 6.20.22.pdf\",\n    \"size\": \"18110 KB\",\n    \"type\": \"pdf\",\n    \"icon\": \"\\ud83d\\udcc4\"\n  }\n]\n</ui-component>\n\n<ui-component type=\"quick-actions\">\n[\n  {\"id\": \"analyze-all\", \"label\": \"Analyze All Files\", \"icon\": \"🔄\", \"action\": \"analyze_all_files\"},\n  {\"id\": \"analyze-selected\", \"label\": \"Analyze Selected\", \"icon\": \"⚡\", \"action\": \"analyze_selected_files\"},\n  {\"id\": \"add-instructions\", \"label\": \"Add Instructions\", \"icon\": \"💬\", \"action\": \"add_analysis_instructions\"}\n]\n</ui-component>\n\n**Next Steps**: Select files using the picker above, optionally add analysis instructions, then click an action button to proceed.",
+      "agent": "smartsheet",
+      "timestamp": "2025-06-10T22:01:05.637Z",
+      "tokenCost": 160,
+      "processingTime": 1492,
+      "metadata": {
+        "model": "o4-mini",
+        "confidence": 0.95,
+        "sources": [
+          "agent_processing",
+          "manager_agent"
+        ]
+      }
+    },
+    {
+      "id": "fcadde2c-9fcb-4c36-ae21-527e13e4aae7",
+      "role": "user",
+      "content": "selected_files: test.pdf",
+      "agent": "User",
+      "timestamp": "2025-06-10T22:01:19.496Z",
+      "metadata": {
+        "file_selection": {
+          "selected_files": [
+            "test.pdf"
+          ],
+          "action": "analyze_selected",
+          "additional_text": "",
+          "sheet_id": null,
+          "available_files": null
+        },
+        "is_file_selection": true
+      }
+    },
+    {
+      "id": "96df5d28-4075-42ea-b9e7-372d90669e69",
+      "role": "assistant",
+      "content": "✅ Request processed successfully",
+      "agent": "exporter",
+      "timestamp": "2025-06-10T22:01:19.496Z",
+      "metadata": {
+        "model": "gpt-4-turbo",
+        "confidence": 0.85,
+        "sources": [
+          "smartsheet"
+        ]
+      }
+    }
+  ],
+  "exportDate": "2025-06-10T22:01:27.923Z",
+  "totalMessages": 4
+}

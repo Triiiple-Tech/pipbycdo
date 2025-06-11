@@ -55,20 +55,6 @@ export default function PIPAIWorkspace() {
   const { data: chatSessions, loading: loadingSessions, refetch: refetchSessions } = useDirectChatSessions()
   const { agentStatus } = useAgentStatus()
 
-  // Also test the regular API to ensure both work
-  const { data: chatSessionsRegular } = useChatSessions(defaultProjectId)
-
-  // Debug logging for chat sessions
-  useEffect(() => {
-    console.log("=== CHAT SESSIONS DEBUG ===");
-    console.log("loadingSessions:", loadingSessions);
-    console.log("chatSessions:", chatSessions);
-    console.log("chatSessions type:", typeof chatSessions);
-    console.log("chatSessions is array:", Array.isArray(chatSessions));
-    console.log("chatSessions length:", chatSessions?.length);
-    console.log("===========================");
-  }, [chatSessions, loadingSessions]);
-
   // Auto-select first chat session when sessions are loaded, or create one if none exist
   useEffect(() => {
     const initializeSession = async () => {
@@ -205,7 +191,7 @@ export default function PIPAIWorkspace() {
 
   return (
     <DragDropProvider onFilesAccepted={(files) => console.log("Global files:", files)}>
-      <div className="min-h-screen bg-background flex text-foreground">
+      <div className="h-screen bg-background flex text-foreground overflow-hidden">
         {/* Connection Status Indicator */}
         <motion.div
           initial={{ opacity: isConnected ? 0 : 1, y: isConnected ? -20 : 0 }}
@@ -215,115 +201,42 @@ export default function PIPAIWorkspace() {
           Connection lost - Reconnecting...
         </motion.div>
 
-        {/* Collapsible Sidebar */}
-        <ChatSidebar
-          activeChat={activeChat}
-          setActiveChat={setActiveChat}
-          onNewChat={handleNewChat}
-          onDeleteChat={handleDeleteChat}
-          onRenameChat={handleRenameChat}
-          isCollapsed={isCollapsed}
-          setIsCollapsed={setIsCollapsed}
-          onOpenAdmin={() => setShowAdmin(true)}
-          chatSessions={chatSessions || []}
-          loading={loadingSessions}
-        />
+        {/* Fixed Sidebar */}
+        <div className="flex-shrink-0">
+          <ChatSidebar
+            activeChat={activeChat}
+            setActiveChat={setActiveChat}
+            onNewChat={handleNewChat}
+            onDeleteChat={handleDeleteChat}
+            onRenameChat={handleRenameChat}
+            isCollapsed={isCollapsed}
+            setIsCollapsed={setIsCollapsed}
+            onOpenAdmin={() => setShowAdmin(true)}
+            chatSessions={chatSessions || []}
+            loading={loadingSessions}
+          />
+        </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col relative">
-          {/* Agent Status Bar */}
-          <AgentStatus />
-
-          {/* Enhanced Chat Interface with Stepwise Presenter */}
-          <div className="flex-1 flex relative">
-            {/* Chat Interface */}
-            <div className="flex-1">
-              <EnhancedChatInterface
-                messages={messages}
-                setMessages={setMessages}
-                isConnected={isConnected}
-                sidebarWidth={sidebarWidth}
-                showAdmin={showAdmin}
-                setShowAdmin={setShowAdmin}
-                activeSessionId={activeChat}
-              />
-            </div>
-
-            {/* Stepwise Presenter Panel */}
-            {activeChat && (
-              <div className="w-80 border-l border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <StepwisePresenter sessionId={activeChat} className="h-full" />
-              </div>
-            )}
+        <div className="flex-1 flex flex-col min-w-0 h-full">
+          {/* Fixed Agent Status Bar */}
+          <div className="flex-shrink-0">
+            <AgentStatus />
           </div>
 
-          {/* Temporary Debug Info */}
-          <div style={{
-              position: 'fixed',
-              top: '10px',
-              right: '10px',
-              background: 'rgba(0,0,0,0.8)',
-              color: 'white',
-              padding: '10px',
-              fontSize: '12px',
-              zIndex: 9999,
-              maxWidth: '300px',
-              borderRadius: '4px'
-            }}>
-              <div><strong>Debug Info:</strong></div>
-              <div>Loading: {loadingSessions ? 'true' : 'false'}</div>
-              <div>Sessions: {chatSessions ? chatSessions.length : 'null'}</div>
-              <div>Active Chat: {activeChat || 'none'}</div>
-              <div>Connected: {isConnected ? 'true' : 'false'}</div>
-              {chatSessions && chatSessions.length > 0 && (
-                <div>First Session: {chatSessions[0].name}</div>
-              )}
-              <button 
-                onClick={async () => {
-                  console.log("🔧 Manual API test button clicked");
-                  try {
-                    const response = await fetch('http://localhost:8000/api/chat/sessions');
-                    const data = await response.json();
-                    console.log("🔧 Manual fetch result:", data);
-                    alert(`Manual fetch success: ${data.length} sessions`);
-                  } catch (error: any) {
-                    console.error("🔧 Manual fetch error:", error);
-                    alert(`Manual fetch error: ${error.message}`);
-                  }
-                }}
-                style={{
-                  padding: '5px 10px',
-                  marginTop: '10px',
-                  background: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >
-                Manual API Test
-              </button>
-              <button 
-                onClick={() => {
-                  console.log("🔧 Refetch button clicked");
-                  refetchSessions();
-                }}
-                style={{
-                  padding: '5px 10px',
-                  marginTop: '5px',
-                  background: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >
-                Force Refetch
-              </button>
-            </div>
+          {/* Scrollable Chat Interface - Full Width */}
+          <div className="flex-1 min-h-0">
+            <EnhancedChatInterface
+              messages={messages}
+              setMessages={setMessages}
+              isConnected={isConnected}
+              sidebarWidth={sidebarWidth}
+              showAdmin={showAdmin}
+              setShowAdmin={setShowAdmin}
+              activeSessionId={activeChat}
+            />
           </div>
+        </div>
 
         {/* Modals */}
         <ConfirmModal

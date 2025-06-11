@@ -67,7 +67,7 @@ export function FloatingInputDock({
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
 
         {/* Main container */}
-        <div className="relative max-w-4xl mx-auto px-6 pb-6">
+        <div className="relative w-full max-w-4xl mx-auto px-6 pb-6">
           {/* Attached Files Preview */}
           <AnimatePresence>
             {attachedFiles.length > 0 && (

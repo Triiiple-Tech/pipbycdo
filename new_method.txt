@@ -1,0 +1,58 @@
+    def _generate_interactive_file_selection_ui(self, files: List[Dict], sheet_id: str) -> str:
+        """Generate interactive file selection UI that avoids HTML nesting issues."""
+        if not files:
+            return "No files found in the Smartsheet."
+        
+        # Create structured file data for frontend
+        files_data = []
+        for i, file_data in enumerate(files):
+            file_name = file_data.get('name', f'File {i+1}')
+            file_size = file_data.get('size_display', 'Unknown size')
+            file_id = file_data.get('id', str(i))
+            
+            # Determine file type and icon
+            file_ext = file_name.lower().split('.')[-1] if '.' in file_name else 'unknown'
+            icon_map = {
+                'pdf': '📄',
+                'xlsx': '📊', 'xls': '📊',
+                'docx': '📝', 'doc': '📝',
+                'txt': '📋',
+                'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️',
+                'dwg': '📐', 'dxf': '📐'
+            }
+            icon = icon_map.get(file_ext, '📎')
+            
+            files_data.append({
+                "id": file_id,
+                "name": file_name,
+                "size": file_size,
+                "type": file_ext,
+                "icon": icon
+            })
+        
+        # Generate clean response without HTML components to avoid nesting issues
+        ui_response = f"""📊 **Smartsheet Connected**
+
+**Sheet ID**: `{sheet_id}`  
+**Files Found**: {len(files)} construction document(s)
+
+### 📁 Files Available for Analysis
+
+"""
+
+        # Add file list in simple markdown format
+        for i, file_data in enumerate(files_data, 1):
+            ui_response += f"{i}. {file_data['icon']} **{file_data['name']}** `{file_data['size']}`\n"
+
+        ui_response += f"""
+### Quick Actions
+- 🔄 **Analyze All Files** - Process all {len(files)} files
+- ⚡ **Select Specific Files** - Choose files above then submit  
+- 💬 **Add Instructions** - Include analysis requirements
+
+**Instructions**: Use the file selection interface above to choose files and begin analysis.
+
+<!-- SMARTSHEET_FILES: {json.dumps(files_data)} -->
+<!-- SHEET_ID: {sheet_id} -->"""
+        
+        return ui_response

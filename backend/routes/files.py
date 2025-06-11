@@ -76,18 +76,26 @@ def generate_unique_filename(original_filename: str) -> str:
 
 def validate_file(file: UploadFile) -> None:
     """Validate file type and size"""
-    if file.size is None:
-        raise HTTPException(status_code=400, detail="File size unknown")
-    
-    if file.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail=f"File size exceeds {MAX_FILE_SIZE} bytes")
-    
     if file.filename is None:
         raise HTTPException(status_code=400, detail="Filename is required")
     
+    # Get file size from content if not available in file.size
+    file_size = file.size
+    if file_size is None:
+        # Try to get size from file content
+        try:
+            content = file.file.read()
+            file_size = len(content)
+            file.file.seek(0)  # Reset file pointer
+        except Exception:
+            file_size = 0
+    
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail=f"File size exceeds {MAX_FILE_SIZE} bytes")
+    
     ext = get_file_extension(file.filename)
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
+        raise HTTPException(status_code=400, detail=f"File type {ext} not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}")
 
 # File upload endpoints
 @router.post("/upload", response_model=List[FileUploadResponse])

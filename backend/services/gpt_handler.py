@@ -1,6 +1,6 @@
 import os
 import logging
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from typing import Optional, Dict, Any, List
 
@@ -17,7 +17,7 @@ class LLMCallError(Exception):
 # role: system, user, assistant, etc.
 # content: the message text
 
-def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = None, 
+async def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = None, 
            api_key: Optional[str] = None, agent_name: Optional[str] = None, 
            max_retries: int = 3, **kwargs: Any) -> str:
     """
@@ -54,7 +54,7 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
         try:
             logger.debug(f"LLM call attempt {attempt + 1}/{max_retries} with model '{current_model}'")
             
-            client = OpenAI(api_key=current_api_key)
+            client = AsyncOpenAI(api_key=current_api_key)
             # Create messages for the API
             messages: List[ChatCompletionMessageParam] = []
             if system_prompt:
@@ -78,7 +78,7 @@ def run_llm(prompt: str, model: str = "gpt-4o", system_prompt: Optional[str] = N
                         api_params.pop("temperature")  # Remove temperature=0, use default
             
             # Create the chat completion - ignore type checking with type: ignore
-            response = client.chat.completions.create(  # type: ignore
+            response = await client.chat.completions.create(  # type: ignore
                 model=current_model, messages=messages, **api_params
             )
             

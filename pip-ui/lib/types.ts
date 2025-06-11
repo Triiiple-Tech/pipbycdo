@@ -31,6 +31,12 @@ export interface ChatMessage {
   agent_type?: string;
 }
 
+// Chat messages response with both user and agent messages
+export interface ChatMessagesResponse {
+  user_message: ChatMessage;
+  agent_response?: ChatMessage;
+}
+
 export interface ChatSession {
   id: string;
   name: string;

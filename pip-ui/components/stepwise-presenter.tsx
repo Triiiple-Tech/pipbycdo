@@ -331,113 +331,51 @@ export function StepwisePresenter({ className = "", sessionId }: StepwisePresent
   }
 
   return (
-    <Card className={`${className} bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60`}>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center space-x-2">
-          <span>Agent Workflow Progress</span>
-          {workflowActive && (
-            <Badge variant="outline" className="ml-auto">
-              Step {currentStep}/{steps.length}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {steps.map((step, index) => (
-          <div 
-            key={step.agent}
-            className={`p-4 rounded-lg border transition-all duration-200 ${getStatusColor(step.status)}`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-3 flex-1">
-                {getStatusIcon(step.status)}
-                <div>
-                  <h4 className="font-medium text-sm">{step.title}</h4>
-                  {step.result && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {step.result}
-                    </p>
-                  )}
-                  {step.timestamp && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(step.timestamp).toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {step.canViewDetails && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleViewDetails(step)}
-                  >
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                )}
-                {step.canProceed && step.requiresUserInput && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleProceedClick(step)}
-                  >
-                    Proceed <ChevronRight className="w-3 h-3 ml-1" />
-                  </Button>
-                )}
-              </div>
-            </div>
+    <div className={`${className} flex items-center justify-between px-3 py-2 bg-muted/20 rounded-md border border-border/30`}>
+      {/* Just the dots and current status */}
+      <div className="flex items-center space-x-2">
+        {steps.length > 0 ? (
+          <div className="flex items-center space-x-1">
+            {steps.map((step, index) => (
+              <div
+                key={step.agent}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  step.status === "complete"
+                    ? "bg-green-500"
+                    : step.status === "processing"
+                    ? "bg-blue-500 animate-pulse"
+                    : step.status === "error"
+                    ? "bg-red-500"
+                    : "bg-gray-300"
+                }`}
+                title={step.title}
+              />
+            ))}
           </div>
-        ))}
+        ) : workflowActive ? (
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+        ) : null}
         
-        {Object.keys(finalOutputs).length > 0 && (
-          <div className="mt-6 pt-4 border-t border-border">
-            <h4 className="font-medium text-sm mb-3">Final Results</h4>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {finalOutputs.estimate && (
-                <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                  <div className="text-lg font-bold text-green-700 dark:text-green-300">
-                    ${finalOutputs.estimate.total.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-green-600 dark:text-green-400">
-                    Total Estimate
-                  </div>
-                </div>
-              )}
-              {finalOutputs.takeoff && (
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                    {finalOutputs.takeoff.items}
-                  </div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400">
-                    Takeoff Items
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {finalOutputs.exportOptions && (
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium">Export Options</h5>
-                <div className="flex flex-wrap gap-2">
-                  {finalOutputs.exportOptions.map((option) => (
-                    <Button
-                      key={option}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExport(option)}
-                      className="h-8"
-                    >
-                      {option === "Smartsheet" ? <Database className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
-                      {option}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        {/* Current step name - only if processing */}
+        {(() => {
+          const currentStepData = steps.find(s => s.status === "processing")
+          if (currentStepData) {
+            return (
+              <span className="text-xs text-muted-foreground">
+                {currentStepData.title.replace(' Agent', '')}
+              </span>
+            )
+          }
+          return null
+        })()}
+      </div>
+
+      {/* Final results - minimal */}
+      {finalOutputs.estimate && (
+        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+          ${finalOutputs.estimate.total.toLocaleString()}
+        </span>
+      )}
+    </div>
   )
 }

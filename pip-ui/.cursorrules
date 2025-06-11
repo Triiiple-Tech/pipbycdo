@@ -1,0 +1,155 @@
+# PIP AI Frontend - Cursor Rules for pip-ui/
+# Next.js 15 + TypeScript + shadcn/ui + Tailwind CSS
+
+## Frontend Architecture
+This is the PIP AI frontend built with:
+- **Next.js 15** with App Router
+- **TypeScript** with strict type checking
+- **shadcn/ui** component library
+- **Tailwind CSS** for styling
+- **Framer Motion** for animations
+- **React Hook Form** for form handling
+- **Zustand** for state management
+- **React Query/TanStack Query** for server state
+
+## Import Patterns
+Always use absolute imports with `@/` prefix:
+```typescript
+// ✅ Correct
+import { Button } from "@/components/ui/button"
+import { chatApi } from "@/services/chatApi"
+import { useChatSessions } from "@/hooks/useApi"
+
+// ❌ Incorrect
+import { Button } from "../ui/button"
+import { chatApi } from "../../services/chatApi"
+```
+
+## Component Structure
+Follow this pattern for all components:
+```typescript
+"use client" // Only if needed for client components
+
+import type React from "react"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { Button } from "@/components/ui/button"
+
+interface ComponentProps {
+  // Props with clear types
+}
+
+export function ComponentName({ prop }: ComponentProps) {
+  // Component logic
+  return (
+    <div className="...">
+      {/* JSX */}
+    </div>
+  )
+}
+```
+
+## Key Directories
+- `app/` - Next.js 15 App Router pages and layouts
+- `components/` - Reusable React components
+- `hooks/` - Custom React hooks for API and state logic
+- `services/` - API client services and utilities
+- `lib/` - Utility functions and configurations
+- `utils/` - Helper functions and constants
+
+## State Management Patterns
+1. **Local state**: `useState` for component state
+2. **Server state**: Custom hooks from `hooks/useApi.ts`
+3. **WebSocket state**: Real-time updates via `chatApi`
+4. **Form state**: React Hook Form for complex forms
+5. **Global state**: Zustand stores when needed
+
+## API Integration
+Use the established API patterns:
+```typescript
+// Custom hooks for API calls
+const { data, loading, error } = useChatSessions()
+
+// Direct API calls when needed
+const response = await chatApi.sendMessage(sessionId, content)
+
+// WebSocket for real-time updates
+chatApi.onMessage('event-name', handleMessage)
+```
+
+## Styling Guidelines
+- Use Tailwind CSS utility classes
+- Follow mobile-first responsive design
+- Use CSS variables for theming
+- Implement dark mode support
+- Use shadcn/ui components as base
+
+## TypeScript Best Practices
+- Define clear interfaces for all props and data
+- Use strict type checking
+- Prefer `type` over `interface` for unions
+- Use generic types for reusable components
+- Export types that other components need
+
+## Animation Patterns
+Use Framer Motion for smooth animations:
+```typescript
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  exit={{ opacity: 0, y: -20 }}
+  transition={{ duration: 0.3 }}
+>
+  Content
+</motion.div>
+```
+
+## Error Handling
+- Use error boundaries for component errors
+- Show user-friendly error messages
+- Implement loading states for all async operations
+- Handle WebSocket connection errors gracefully
+
+## Accessibility
+- Use semantic HTML elements
+- Implement proper ARIA labels
+- Ensure keyboard navigation works
+- Test with screen readers
+- Maintain color contrast ratios
+
+## Performance
+- Use React.memo for expensive components
+- Implement proper key props for lists
+- Lazy load heavy components
+- Optimize images with Next.js Image component
+- Use Suspense for code splitting
+
+## File Naming Conventions
+- Components: PascalCase (e.g., `ChatInterface.tsx`)
+- Hooks: camelCase starting with `use` (e.g., `useApi.ts`)
+- Services: camelCase (e.g., `chatApi.ts`)
+- Utils: camelCase (e.g., `messageParser.ts`)
+- Types: PascalCase (e.g., `ChatMessage.ts`)
+
+## Component Patterns
+1. **Container components** for data fetching
+2. **Presentational components** for UI rendering
+3. **Custom hooks** for business logic
+4. **Higher-order components** when appropriate
+5. **Compound components** for complex UI patterns
+
+## Testing Approach
+- Unit tests for utility functions
+- Component tests with React Testing Library
+- Integration tests for user workflows
+- E2E tests for critical paths
+- Visual regression tests for UI
+
+## Bundle Optimization
+- Tree shake unused code
+- Code split by route and feature
+- Optimize dependencies
+- Use dynamic imports for heavy components
+- Monitor bundle size
+
+Remember: This frontend connects to a sophisticated Python backend with real-time WebSocket communication. Always consider the full-stack implications of changes. 

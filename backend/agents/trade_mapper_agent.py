@@ -1,139 +1,37 @@
+"""
+Trade Mapper Agent for PIP AI Construction Analysis
+Maps construction documents to specific trades using LLM analysis
+"""
+
+import json
+import logging
+from typing import Any, Dict, List, Optional
 from backend.app.schemas import AppState
 from backend.agents.base_agent import BaseAgent
-import re
-from typing import List, Dict, Any
+from backend.services.gpt_handler import run_llm
+from backend.services.llm_selector import select_llm
 
+logger = logging.getLogger(__name__)
 
 class TradeMapperAgent(BaseAgent):
     """
-    Agent responsible for mapping file content to construction trades based on CSI divisions.
-    Uses keyword matching and pattern recognition to identify relevant trades.
+    Agent that analyzes construction documents to identify specific trades and CSI divisions.
+    Uses LLM for intelligent analysis instead of keyword matching.
     """
-    
-    # Brain prompt from Autonomous Agentic Manager Protocol
-    BRAIN_PROMPT = """You are the TradeMapperAgent. Your job is to analyze processed_files_content and identify which construction trades are represented in the documents. Map content to CSI (Construction Specifications Institute) divisions and create a comprehensive trade_mapping that shows what trades/divisions are present, where they're mentioned, and their relevance to the project. Return detailed trade_mapping data that organizes the file content by construction discipline."""
-    
-    # CSI divisions mapping with keywords
-    CSI_DIVISIONS_KEYWORDS = {
-        "010000": ["general requirements", "summary of work", "allowances"],
-        "020000": ["existing conditions", "demolition", "site remediation"],
-        "030000": ["concrete", "cast-in-place", "precast"],
-        "040000": ["masonry", "brick", "stone", "block"],
-        "050000": ["metals", "structural steel", "metal fabrications"],
-        "060000": ["wood, plastics, and composites", "rough carpentry", "finish carpentry", "millwork"],
-        "070000": ["thermal and moisture protection", "roofing", "waterproofing", "insulation"],
-        "080000": ["openings", "doors", "windows", "glazing", "hardware"],
-        "090000": ["finishes", "drywall", "painting", "flooring", "ceilings"],
-        "100000": ["specialties", "signage", "toilet accessories", "fire protection specialties"],
-        "110000": ["equipment", "laboratory equipment", "kitchen equipment"],
-        "120000": ["furnishings", "casework", "furniture", "window treatments"],
-        "130000": ["special construction", "clean rooms", "aquatic facilities"],
-        "140000": ["conveying equipment", "elevators", "escalators"],
-        "210000": ["fire suppression", "sprinklers", "standpipes"],
-        "220000": ["plumbing", "piping", "fixtures"],
-        "230000": ["hvac", "heating, ventilating, and air conditioning", "ductwork", "air distribution"],
-        "260000": ["electrical", "wiring", "lighting", "power generation"],
-        "270000": ["communications", "data", "voice", "audiovisual"],
-        "280000": ["electronic safety and security", "access control", "cctv"],
-        "310000": ["earthwork", "excavation", "grading"],
-        "320000": ["exterior improvements", "paving", "fences", "landscaping"],
-        "330000": ["utilities", "water", "sewer", "storm drainage"]
-    }
     
     def __init__(self):
         super().__init__("trade_mapper")
-        self.brain_prompt = self.BRAIN_PROMPT
-    
-    def process(self, state: AppState) -> AppState:
-        """Main processing method for the trade mapper agent."""
-        
-        self.log_interaction(state, "Starting trade mapping", 
-                           f"Trade Mapper Agent invoked. Processing {len(state.processed_files_content or {})} files")
-        
-        # Check if there's content to process
-        if not state.processed_files_content:
-            self.log_interaction(state, "No processed file content found", 
-                               "No content from File Reader Agent to process", level="error")
-            state.trade_mapping = []
-            return state
-        
-        # Process each file's content
-        all_trades: List[Dict[str, Any]] = []
-        for filename, content in state.processed_files_content.items():
-            try:
-                trades = self._process_file_content(filename, content, state)
-                all_trades.extend(trades)
-            except Exception as e:
-                error_msg = f"Error mapping trades for {filename}: {str(e)}"
-                self.log_interaction(state, f"Trade mapping error: {filename}", error_msg, level="error")
-                
-                # Add error entry to trade mapping
-                all_trades.append({
-                    "trade_name": "Error in Processing",
-                    "csi_division": "ERROR",
-                    "keywords_found": [],
-                    "source_file": filename,
-                    "error_message": str(e)
-                })
-        
-        # Update state with mapped trades
-        state.trade_mapping = all_trades
-        
-        # Log completion summary
-        if not state.trade_mapping:
-            self.log_interaction(state, "No trades mapped overall", 
-                               "No trades were mapped from any of the processed files")
-        else:
-            self.log_interaction(state, f"Trade mapping complete", 
-                               f"Identified {len(state.trade_mapping)} trade entries overall")
-        
-        return state
-    
-    def _process_file_content(self, filename: str, content: str, state: AppState) -> List[Dict[str, Any]]:
-        """Process content from a single file to identify trades."""
-        
-        if not content or not content.strip():
-            self.log_interaction(state, f"Skipping empty content: {filename}", 
-                               f"File {filename} has no content to map")
-            return []
-        
-        self.log_interaction(state, f"Mapping trades for: {filename}", 
-                           f"Processing content of {filename}")
-        
-        # Try LLM-enhanced mapping first
-        llm_trades = self._get_llm_trade_mapping(content, filename, state)
-        if llm_trades:
-            self.log_interaction(state, f"LLM trade mapping successful: {filename}", 
-                               f"Found {len(llm_trades)} trades using LLM analysis")
-            return llm_trades
-        
-        # Fallback to keyword-based mapping
-        keyword_trades = self._map_content_to_trades_keywords(content, filename)
-        
-        if keyword_trades:
-            self.log_interaction(state, f"Keyword trade mapping: {filename}", 
-                               f"Found {len(keyword_trades)} trades using keyword matching")
-        else:
-            self.log_interaction(state, f"No trades mapped: {filename}", 
-                               f"No specific trades identified in {filename}")
-        
-        return keyword_trades
-    
-    def _get_llm_trade_mapping(self, content: str, filename: str, state: AppState) -> List[Dict[str, Any]]:
-        """Use LLM to intelligently map content to trades and CSI divisions."""
-        
-        try:
-            system_prompt = """You are an expert construction document analyzer specializing in CSI (Construction Specifications Institute) divisions. 
+        self.brain_prompt = """You are an expert construction document analyzer specializing in CSI (Construction Specifications Institute) divisions. 
 Your task is to analyze construction documents and identify specific trades and CSI divisions present.
 
-IMPORTANT: Respond with ONLY a valid JSON array of trade objects. Each object must have these exact keys:
+Return ONLY a valid JSON array of trade objects. Each object must have these exact keys:
 [
     {
-        "trade_name": "<specific trade name>",
-        "csi_division": "<6-digit CSI code>",
-        "keywords_found": ["<relevant keywords from text>"],
-        "confidence": "<high|medium|low>",
-        "description": "<brief description of work identified>"
+        "trade_name": "specific trade name",
+        "csi_division": "6-digit CSI code",
+        "keywords_found": ["relevant keywords from text"],
+        "confidence": "high|medium|low",
+        "description": "brief description of work identified"
     }
 ]
 
@@ -162,101 +60,104 @@ CSI Division Reference:
 - 32xxxx: Exterior Improvements
 - 33xxxx: Utilities"""
 
-            user_prompt = f"""Analyze this construction document content and identify all trades and CSI divisions present:
+    async def process(self, state: AppState) -> AppState:
+        """Process construction documents to identify trades using LLM analysis."""
+        
+        # Check if we have either file content OR text query to analyze
+        if not state.processed_files_content and not state.query:
+            self.log_interaction(state, "No content to analyze", 
+                               "No processed file content or query text available for trade mapping")
+            state.trade_mapping = []
+            return state
 
-=== DOCUMENT: {filename} ===
-{content[:3000]}  
-
-Identify specific trades, provide appropriate CSI division codes, and list relevant keywords found in the text."""
-
-            response = self.call_llm(state, user_prompt, system_prompt)
+        try:
+            # Select optimal model for trade analysis
+            llm_config = select_llm("trade_mapper", state.model_dump())
+            model = llm_config.get("model", "gpt-4o-mini") or "gpt-4o-mini"
+            api_key = llm_config.get("api_key", "")
             
-            if response:
-                import json
-                trades_data = json.loads(response)
-                
-                # Validate and clean the response
-                validated_trades: List[Dict[str, Any]] = []
-                for trade in trades_data:
-                    if isinstance(trade, dict) and "trade_name" in trade and "csi_division" in trade:
-                        # Type-safe dictionary access
-                        trade_dict = trade  # type: ignore
-                        validated_trade: Dict[str, Any] = {
-                            "trade_name": str(trade_dict.get("trade_name", "Unknown Trade")),  # type: ignore
-                            "csi_division": str(trade_dict.get("csi_division", "000000")),  # type: ignore
-                            "keywords_found": list(trade_dict.get("keywords_found", [])),  # type: ignore
-                            "confidence": str(trade_dict.get("confidence", "medium")),  # type: ignore
-                            "description": str(trade_dict.get("description", "")),  # type: ignore
-                            "source_file": filename,
-                            "mapping_method": "LLM"
-                        }
-                        validated_trades.append(validated_trade)
-                
-                return validated_trades
-                
+            # Prepare content for LLM analysis (files or text query)
+            content_summary = self._prepare_content_for_llm(state.processed_files_content, state.query)
+            
+            # Create analysis prompt
+            analysis_prompt = f"""Analyze these construction documents and identify all trades and CSI divisions present:
+
+{content_summary}
+
+Identify all construction trades present in these documents. Return the analysis as a JSON array."""
+
+            self.log_interaction(state, "Calling LLM for trade analysis", 
+                               f"Using model {model} to analyze construction trades")
+
+            # Call LLM for analysis
+            llm_response = await run_llm(
+                prompt=analysis_prompt,
+                system_prompt=self.brain_prompt,
+                model=model,
+                api_key=api_key,
+                agent_name="trade_mapper",
+                temperature=0.1,
+                max_tokens=2000
+            )
+
+            # Parse LLM response
+            try:
+                trade_mappings = json.loads(llm_response)
+                if not isinstance(trade_mappings, list):
+                    trade_mappings = []
+            except json.JSONDecodeError as e:
+                self.log_interaction(state, "LLM response parsing error", 
+                                   f"Could not parse JSON from LLM: {e}", level="error")
+                trade_mappings = []
+
+            # Update state with mapped trades
+            state.trade_mapping = trade_mappings
+            
+            self.log_interaction(state, "Trade mapping complete", 
+                               f"Identified {len(trade_mappings)} construction trades using LLM analysis")
+
         except Exception as e:
-            self.logger.warning(f"LLM trade mapping failed for {filename}: {e}")
-            return []
-        
-        return []
-    
-    def _map_content_to_trades_keywords(self, content: str, filename: str) -> List[Dict[str, Any]]:
-        """
-        Fallback method: Map content to trades using keyword spotting.
-        """
-        mapped_trades: List[Dict[str, Any]] = []  # type: ignore
-        content_lower = content.lower()
+            error_msg = f"Error in LLM-based trade mapping: {str(e)}"
+            self.log_interaction(state, "Trade mapping error", error_msg, level="error")
+            logger.error(f"TradeMapperAgent error: {e}")
+            state.trade_mapping = []
 
-        for csi_code, keywords in self.CSI_DIVISIONS_KEYWORDS.items():
-            found_keywords: List[str] = []  # type: ignore
-            for keyword in keywords:
-                # Use regex to find whole words to avoid partial matches
-                if re.search(r'\b' + re.escape(keyword.lower()) + r'\b', content_lower):
-                    found_keywords.append(keyword)
-            
-            if found_keywords:
-                mapped_trades.append({
-                    "trade_name": f"Trade related to CSI {csi_code}",
-                    "csi_division": csi_code,
-                    "keywords_found": found_keywords,
-                    "source_excerpt": content_lower[:200] + "...",
-                    "source_file": filename,
-                    "mapping_method": "keyword"
-                })
+        return state
+
+    def _prepare_content_for_llm(self, processed_files_content: Optional[Dict[str, str]] = None, query: Optional[str] = None) -> str:
+        """Prepare file content and/or query text for LLM analysis."""
+        content_parts = []
         
-        # If no specific keywords found but content exists, add general category
-        if not mapped_trades and content_lower.strip():
-            mapped_trades.append({
-                "trade_name": "General Construction/Uncategorized",
-                "csi_division": "000000",
-                "keywords_found": [],
-                "source_excerpt": content_lower[:200] + "...",
-                "source_file": filename,
-                "mapping_method": "fallback"
-            })
+        # Add file content if available
+        if processed_files_content:
+            for filename, content in processed_files_content.items():
+                # Truncate very long content to avoid token limits
+                truncated_content = content[:2000] if len(content) > 2000 else content
+                content_parts.append(f"=== {filename} ===\n{truncated_content}\n")
         
-        return mapped_trades
+        # Add query text if available and no files
+        if query and not processed_files_content:
+            content_parts.append(f"=== User Query ===\n{query}\n")
+        
+        return "\n".join(content_parts) if content_parts else "No content available"
 
 
 # Create instance for backward compatibility
 trade_mapper_agent = TradeMapperAgent()
 
-# Add the missing module-level functions and constants that tests expect
-def map_content_to_trades(content: str) -> List[Dict[str, Any]]:
-    """Module-level function for mapping content to trades."""
-    # Create a temporary instance to access the method
-    temp_agent = TradeMapperAgent()
-    return temp_agent._map_content_to_trades_keywords(content, "test_file.txt")  # type: ignore
-
-def log_interaction(state: AppState, decision: str, message: str, level: str = "info") -> None:
-    """Module-level function for logging interactions."""
-    trade_mapper_agent.log_interaction(state, decision, message, level)
-
-# Expose the CSI_DIVISIONS_KEYWORDS at module level for tests
-CSI_DIVISIONS_KEYWORDS = TradeMapperAgent.CSI_DIVISIONS_KEYWORDS
-
 # Legacy handle function for existing code
-def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Legacy handle function that uses the new TradeMapperAgent class."""
-    return trade_mapper_agent.handle(state_dict)
-
+async def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Legacy async handle function that uses the new TradeMapperAgent class."""
+    try:
+        # Convert dict to AppState
+        state = AppState(**state_dict)
+        
+        # Run the async process method
+        result_state = await trade_mapper_agent.process(state)
+        
+        return result_state.model_dump()
+    except Exception as e:
+        logger.error(f"Error in trade mapper handle: {e}")
+        # Return the original state with empty trade mapping
+        state_dict['trade_mapping'] = []
+        return state_dict

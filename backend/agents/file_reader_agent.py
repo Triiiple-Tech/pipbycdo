@@ -18,7 +18,7 @@ class FileReaderAgent(BaseAgent):
         self.file_parser = MultimodalFileParser()
         self.brain_prompt = self.BRAIN_PROMPT
     
-    def process(self, state: AppState) -> AppState:
+    async def process(self, state: AppState) -> AppState:
         """Main processing method for the file reader agent."""
         
         self.log_interaction(state, "Starting file processing", "File Reader Agent invoked")
@@ -145,7 +145,7 @@ class FileReaderAgent(BaseAgent):
 file_reader_agent = FileReaderAgent()
 
 # Legacy handle function for existing code
-def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
+async def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function that uses the new FileReaderAgent class."""
-    return file_reader_agent.handle(state_dict)
+    return await file_reader_agent.handle(state_dict)
                         

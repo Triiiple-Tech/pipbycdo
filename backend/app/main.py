@@ -3,11 +3,12 @@ import sys
 import os
 import json
 
-# Add project root to path and load environment variables
+# Add project root to path and load environment variables using our custom loader
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
-from dotenv import load_dotenv
-load_dotenv()
+
+# Use our custom environment loader
+from backend.load_env import *
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

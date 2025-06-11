@@ -19,14 +19,14 @@ class BaseAgent(ABC):
         self.logger = logging.getLogger(f"agent.{agent_name}")
     
     @abstractmethod
-    def process(self, state: AppState) -> AppState:
+    async def process(self, state: AppState) -> AppState:
         """
         Process the state and return the updated state.
         This is the main method that each agent must implement.
         """
         pass
     
-    def handle(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Standard entry point for all agents.
         Handles state conversion, LLM configuration, error handling, and logging.
@@ -45,7 +45,7 @@ class BaseAgent(ABC):
             self.log_interaction(state, "Agent invoked", f"{self.agent_name} agent started")
             
             # Process the state using the agent-specific logic
-            updated_state = self.process(state)
+            updated_state = await self.process(state)
             
             # Update the timestamp
             updated_state.updated_at = datetime.now(timezone.utc)
@@ -112,7 +112,7 @@ class BaseAgent(ABC):
         else:
             self.logger.info(f"{self.agent_name}: {message} - Decision: {decision}")
     
-    def call_llm(self, state: AppState, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    async def call_llm(self, state: AppState, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
         """
         Standardized method to call LLM with proper configuration and error handling.
         """
@@ -123,7 +123,7 @@ class BaseAgent(ABC):
         
         try:
             # Use enhanced gpt_handler with fallback support
-            response: str = run_llm(
+            response: str = await run_llm(
                 prompt=prompt,
                 model=state.llm_config.model,
                 system_prompt=system_prompt,

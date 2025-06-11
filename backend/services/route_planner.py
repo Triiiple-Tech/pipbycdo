@@ -15,13 +15,13 @@ class RoutePlanner:
     def __init__(self):
         self.name = "route_planner"
     
-    async def plan_route(self, state: AppState, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
+    async def plan_route(self, state: AppState, available_agents: Dict[str, Any]) -> Dict[str, Any]:
         """
         Plan the optimal route through agents based on current state and user intent.
         
         Args:
             state: Current application state
-            available_agents: Dictionary mapping agent names to (handler_function, required_field) tuples
+            available_agents: Dictionary mapping agent names to agent configuration dictionaries
         
         Returns:
             Dictionary containing route plan with agent sequence, skip decisions, and metadata
@@ -141,7 +141,7 @@ class RoutePlanner:
         return gaps
     
     def _create_route_plan(self, intent_result: Dict[str, Any], state_analysis: Dict[str, Any], 
-                          available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
+                          available_agents: Dict[str, Any]) -> Dict[str, Any]:
         """Create initial route plan based on intent and state analysis."""
         
         primary_intent = intent_result.get("primary_intent", "full_estimation")
@@ -192,7 +192,7 @@ class RoutePlanner:
         return route_plan
     
     def _optimize_route(self, route_plan: Dict[str, Any], state: AppState, 
-                       available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
+                       available_agents: Dict[str, Any]) -> Dict[str, Any]:
         """Optimize the route for efficiency while maintaining data integrity."""
         
         base_sequence = route_plan["base_sequence"]
@@ -269,7 +269,7 @@ class RoutePlanner:
         
         return False
     
-    def _ensure_dependencies(self, sequence: List[str], available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]], 
+    def _ensure_dependencies(self, sequence: List[str], available_agents: Dict[str, Any], 
                            state: AppState) -> List[str]:
         """Ensure that required dependencies are included in the sequence."""
         
@@ -312,7 +312,7 @@ class RoutePlanner:
         
         return bool(data_mapping.get(agent_name))
     
-    def _fallback_route_plan(self, available_agents: Dict[str, Tuple[Callable[..., Any], Optional[str]]]) -> Dict[str, Any]:
+    def _fallback_route_plan(self, available_agents: Dict[str, Any]) -> Dict[str, Any]:
         """Fallback route plan when classification fails."""
         logger.warning("Using fallback route planning")
         

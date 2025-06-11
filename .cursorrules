@@ -1,0 +1,148 @@
+# PIP AI - Autonomous Agentic Manager Protocol
+# Cursor Environment Configuration for Background Agents
+
+## Project Overview
+You are working on PIP AI, an advanced construction estimation system with autonomous multi-agent architecture. This is a production-ready system with real-time WebSocket communication, file processing, Smartsheet integration, and a sophisticated frontend built with Next.js 15 and React.
+
+## System Architecture
+- **Backend**: FastAPI with Python 3.13, async/await patterns
+- **Frontend**: Next.js 15 with TypeScript, Tailwind CSS, shadcn/ui
+- **Database**: Supabase with real-time subscriptions  
+- **External APIs**: OpenAI GPT-4o/o1/o3, Smartsheet API
+- **Communication**: WebSocket for real-time updates
+- **File Processing**: Multi-format support (PDF, XLSX, DOCX, images)
+
+## Directory Structure
+```
+pipbycdo/
+├── backend/                 # FastAPI backend
+│   ├── app/                # Application core
+│   ├── agents/             # 7 specialized AI agents
+│   ├── routes/             # API endpoints
+│   ├── services/           # Business logic
+│   └── tests/              # Test suites
+├── pip-ui/                 # Next.js frontend
+│   ├── app/                # App router structure
+│   ├── components/         # React components
+│   ├── hooks/              # Custom React hooks
+│   ├── services/           # API client services
+│   └── utils/              # Utility functions
+└── [development files]
+```
+
+## Key Technologies & Patterns
+
+### Backend (Python/FastAPI)
+- **Absolute imports**: Always use `from backend.module.submodule import Class`
+- **Async patterns**: All agent operations are async with proper error handling
+- **Type annotations**: Full type hints for all functions and variables
+- **Pydantic models**: Data validation with BaseModel classes
+- **WebSocket streaming**: Real-time agent communication
+
+### Frontend (TypeScript/React)
+- **Absolute imports**: Use `@/` prefix for all internal imports
+- **React hooks**: Custom hooks for API integration and state management
+- **Real-time updates**: WebSocket integration with automatic reconnection
+- **Type safety**: Strict TypeScript with comprehensive interfaces
+- **Modern patterns**: React 18+ with concurrent features
+
+## Agent Architecture (7 Specialized Agents)
+1. **ManagerAgent**: Orchestrates workflow and makes routing decisions
+2. **FileReaderAgent**: Extracts content from uploaded documents
+3. **TradeMapperAgent**: Categorizes construction trades and CSI divisions
+4. **ScopeAgent**: Extracts detailed scope items and specifications
+5. **TakeoffAgent**: Calculates quantities and measurements
+6. **EstimatorAgent**: Generates cost estimates with pricing
+7. **SmartsheetAgent**: Bidirectional Smartsheet integration
+
+## Current Issues to Address
+1. **File Upload Disconnect**: Files uploaded separately from chat messages aren't processed by agents
+2. **Smartsheet Pipeline**: File selection after Smartsheet integration needs to trigger full analysis
+3. **Agent State Management**: Ensure proper state persistence across pipeline steps
+
+## Development Guidelines
+
+### Code Quality
+- Follow PEP 8 for Python, ESLint/Prettier for TypeScript
+- Use descriptive variable names and comprehensive docstrings
+- Implement proper error handling with user-friendly messages
+- Add logging for debugging and monitoring
+
+### API Design
+- RESTful endpoints with consistent response formats
+- WebSocket messages follow structured schemas
+- Proper HTTP status codes and error responses
+- Rate limiting and input validation
+
+### Testing
+- Unit tests for all agent logic
+- Integration tests for API endpoints
+- End-to-end tests for critical workflows
+- Real-time testing for WebSocket functionality
+
+### Performance
+- Async operations for I/O bound tasks
+- Efficient file processing with streaming
+- Database query optimization
+- Frontend bundle optimization
+
+## Environment Setup
+- Python 3.13 with virtual environment (.venv)
+- Node.js 22.15+ with npm
+- Environment variables in root .env file
+- Local development on ports 8000 (backend) and 3000 (frontend)
+
+## File Processing Flow
+1. User uploads files via drag-drop or file picker
+2. Files are processed immediately and stored with metadata
+3. Agent pipeline processes files in sequence
+4. Real-time updates via WebSocket
+5. Results displayed in chat interface
+
+## Smartsheet Integration Flow
+1. User provides Smartsheet URL
+2. SmartsheetAgent lists available files
+3. Interactive file selection UI
+4. Selected files trigger full agent pipeline
+5. Results can be pushed back to Smartsheet
+
+## WebSocket Message Types
+- `chat_message`: User/agent messages
+- `manager_thinking`: Real-time agent decisions
+- `agent_substep`: Granular progress updates
+- `workflow_state_change`: Pipeline state changes
+- `user_decision_needed`: Interactive prompts
+- `error_recovery`: Error handling status
+
+## Debugging & Monitoring
+- Comprehensive logging with structured formats
+- Real-time agent trace visualization
+- Performance metrics and timing
+- Error tracking with recovery strategies
+
+## Security Considerations
+- Input validation and sanitization
+- API authentication with internal codes
+- File upload restrictions and scanning
+- Secure WebSocket connections
+
+## When Working on Issues:
+1. **Read the full file** before making changes
+2. **Understand the data flow** between components
+3. **Test WebSocket integration** for real-time features
+4. **Check agent pipeline** for proper state management
+5. **Verify frontend-backend** communication
+
+## Common Patterns to Follow:
+- Use existing hook patterns for new API endpoints
+- Follow established WebSocket message schemas
+- Implement proper loading states and error handling
+- Maintain consistent UI/UX patterns across components
+
+## Current Development Priorities:
+1. Fix file upload → agent processing connection
+2. Resolve Smartsheet file selection → analysis pipeline
+3. Improve agent state persistence and error recovery
+4. Enhance real-time user feedback and progress indication
+
+Remember: This is a sophisticated production system with real users. Maintain high code quality, comprehensive error handling, and excellent user experience. 

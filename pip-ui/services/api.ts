@@ -169,11 +169,30 @@ class ApiClient {
     });
   }
 
-  async sendChatMessage(sessionId: string, message: string): Promise<ApiResponse<ChatMessage>> {
-    return this.request(`/api/chat/sessions/${sessionId}/messages`, {
+  async sendChatMessage(sessionId: string, message: string): Promise<ApiResponse<ChatMessage[]>> {
+    const response = await this.request(`/api/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
       body: JSON.stringify({ content: message }),
     });
+    
+    // Handle the new response format with both user and agent messages
+    if (response.data && typeof response.data === 'object' && 'user_message' in response.data) {
+      const chatResponse = response.data as any;
+      const messages: ChatMessage[] = [chatResponse.user_message];
+      if (chatResponse.agent_response) {
+        messages.push(chatResponse.agent_response);
+      }
+      return {
+        ...response,
+        data: messages
+      };
+    }
+    
+    // Fallback for single message response (backward compatibility)
+    return {
+      ...response,
+      data: response.data ? [response.data as ChatMessage] : []
+    };
   }
 
   async getChatMessages(sessionId: string): Promise<ApiResponse<ChatMessage[]>> {

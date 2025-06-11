@@ -49,9 +49,25 @@ class IntentClassifier:
                 r"estimate.*project",
                 r"full\s+estimation",
                 r"complete\s+analysis",
+                r"complete.*analysis.*needed",
                 r"analyze.*plans?",
                 r"cost\s+estimate",
-                r"takeoff.*estimate"
+                r"takeoff.*estimate",
+                r"construction.*project",
+                r"renovation.*project", 
+                r"commercial.*renovation",
+                r"office.*renovation",
+                r"building.*renovation",
+                r"urgent.*analysis",
+                r"scope.*of.*work",
+                r"electrical.*systems",
+                r"hvac.*systems",
+                r"plumbing.*work",
+                r"general.*construction",
+                r"deliverables.*required",
+                r"autonomous.*workflow",
+                r"brain.*allocation",
+                r"project.*details"
             ],
             IntentType.FILE_ANALYSIS: [
                 r"analyze.*files?",
@@ -97,10 +113,25 @@ class IntentClassifier:
             query = state.query or ""
             files_count = len(state.files) if state.files else 0
             has_smartsheet_url = bool(self._extract_smartsheet_url(query))
+            is_file_selection = self._is_file_selection_input(query)
             metadata = state.metadata or {}
             
             # Debug logging
-            logger.info(f"INTENT DEBUG: query='{query[:100]}...', files_count={files_count}, has_smartsheet_url={has_smartsheet_url}")
+            logger.info(f"INTENT DEBUG: query='{query[:100]}...', files_count={files_count}, has_smartsheet_url={has_smartsheet_url}, is_file_selection={is_file_selection}")
+            
+            # Check for file selection continuation (should go back to Smartsheet)
+            if is_file_selection:
+                intent_metadata = {
+                    "confidence": 0.95,
+                    "pattern_match": True,
+                    "llm_classified": False,
+                    "file_selection": True,
+                    "classified_at": datetime.now(timezone.utc).isoformat()
+                }
+                logger.info("INTENT DEBUG: File selection detected, returning SMARTSHEET_INTEGRATION")
+                final_intent = IntentType.SMARTSHEET_INTEGRATION
+                self._log_classification(state, final_intent, intent_metadata)
+                return final_intent, intent_metadata
             
             # Pattern-based classification
             pattern_intent = self._classify_by_patterns(query)
@@ -168,14 +199,15 @@ class IntentClassifier:
             Respond with ONLY the intent type (e.g., "full_estimation").
             """
             
-            # Update LLM config for intent classification
-            llm_config = state.llm_config or {}
-            llm_config.update({
-                "model": "gpt-4o-mini",
-                "params": {"temperature": 0.1, "max_tokens": 50}
-            })
-            
-            response = await run_llm(prompt, llm_config)
+            # Use specific model for intent classification
+            response = await run_llm(
+                prompt=prompt,
+                model="gpt-4o-mini",
+                api_key=None,  # Will use default
+                agent_name="intent_classifier",
+                temperature=0.1,
+                max_tokens=50
+            )
             
             # Parse LLM response
             intent_str = response.strip().lower()
@@ -310,6 +342,23 @@ class IntentClassifier:
             "rerun_agent": "Re-run a previous agent step",
             "quality_review": "Review and validate existing estimates"
         }
+
+    def _is_file_selection_input(self, query: str) -> bool:
+        """Detect if the query is a file selection input."""
+        file_selection_patterns = [
+            r'selected_files:\s*',
+            r'analyze\s+(selected|files|all)',
+            r'file\s*\d+',
+            r'\.(pdf|xlsx?|docx?|txt)',
+            r'select.*file',
+            r'files?:\s*\[',
+        ]
+        
+        import re
+        for pattern in file_selection_patterns:
+            if re.search(pattern, query, re.IGNORECASE):
+                return True
+        return False
 
 # Global instance
 intent_classifier = IntentClassifier()

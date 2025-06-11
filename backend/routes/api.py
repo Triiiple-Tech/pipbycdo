@@ -64,10 +64,10 @@ async def health_check():
     return {"status": "ok"}
 
 # Helper function to run the analysis in the background
-def run_analysis_task(task_id: str, state_dict: Dict[str, Any]) -> None:
+async def run_analysis_task(task_id: str, state_dict: Dict[str, Any]) -> None:
     try:
         # Cast the result of manager_handle to Dict[str, Any] to ensure proper typing
-        final_state_dict: Dict[str, Any] = cast(Dict[str, Any], manager_handle(state_dict))
+        final_state_dict: Dict[str, Any] = cast(Dict[str, Any], await manager_handle(state_dict))
         update_data: Dict[str, Any] = {
             "status": "completed",
             "result": final_state_dict, # Ensure this is JSON serializable
@@ -197,7 +197,19 @@ async def analyze(
         })
 
 
-    background_tasks.add_task(run_analysis_task, task_id, state.model_dump(mode='json')) 
+    # Temporary sync approach for debugging
+    def sync_wrapper():
+        try:
+            import asyncio
+            # Create new event loop for background task
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(run_analysis_task(task_id, state.model_dump(mode='json')))
+            loop.close()
+        except Exception as e:
+            print(f"Background task error: {e}")
+    
+    background_tasks.add_task(sync_wrapper) 
     
     return AnalyzeTaskSubmissionResponse(task_id=task_id, status="pending")
 

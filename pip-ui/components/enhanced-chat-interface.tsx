@@ -5,7 +5,7 @@ import { MessageSquare, X } from "lucide-react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Paperclip, Bot, User, ChevronDown, Clock, DollarSign, Cpu, Upload, Link, FileText } from "lucide-react"
+import { Paperclip, Bot, User, ChevronDown, Clock, DollarSign, Cpu, Upload, Link, FileText, Zap, Calculator, Search, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { FloatingInputDock } from "@/components/floating-input-dock"
 import { AdminPanel } from "@/components/admin-panel"
 import { StepwisePresenter } from "@/components/stepwise-presenter"
+import { FormattedMessageContent } from "@/components/formatted-message-content"
+import { FileSelectionCard } from "@/components/chat/FileSelectionCard"
+import { AgentConversation } from "@/components/agent-conversation"
+import { StreamingMessage } from "@/components/streaming-message"
+import { parseMessageForInteractivity, cleanMessageContent } from "@/utils/messageParser"
 import { toast } from "sonner"
 
 // Import our new API services and hooks
@@ -54,6 +59,53 @@ interface EnhancedChatInterfaceProps {
   activeSessionId?: string | null // Add this prop to receive the active session from parent
 }
 
+// Helper functions for agent styling and icons - matching agent-status.tsx
+const getAgentStyle = (agent?: string): string => {
+  const agentLower = agent?.toLowerCase() || ""
+  
+  if (agentLower.includes("smartsheet")) {
+    return "bg-orange-500"
+  } else if (agentLower.includes("file") || agentLower.includes("reader")) {
+    return "bg-blue-500"
+  } else if (agentLower.includes("estimator")) {
+    return "bg-green-600"
+  } else if (agentLower.includes("takeoff")) {
+    return "bg-yellow-500"
+  } else if (agentLower.includes("scope")) {
+    return "bg-purple-500"
+  } else if (agentLower.includes("exporter")) {
+    return "bg-indigo-500"
+  } else if (agentLower.includes("trade") || agentLower.includes("mapper")) {
+    return "bg-teal-500"
+  } else {
+    // Default for Manager Agent and others
+    return "bg-[#E60023]"
+  }
+}
+
+const getAgentIcon = (agent?: string): React.ReactElement => {
+  const agentLower = agent?.toLowerCase() || ""
+  
+  if (agentLower.includes("smartsheet")) {
+    return <Database className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("file") || agentLower.includes("reader")) {
+    return <FileText className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("estimator")) {
+    return <Calculator className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("takeoff")) {
+    return <Calculator className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("scope")) {
+    return <Zap className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("exporter")) {
+    return <Upload className="w-4 h-4 text-white" />
+  } else if (agentLower.includes("trade") || agentLower.includes("mapper")) {
+    return <Search className="w-4 h-4 text-white" />
+  } else {
+    // Default for Manager Agent and others
+    return <Bot className="w-4 h-4 text-white" />
+  }
+}
+
 export function EnhancedChatInterface({
   messages,
   setMessages,
@@ -71,6 +123,12 @@ export function EnhancedChatInterface({
   const [dragDepth, setDragDepth] = useState(0)
   const [smartsheetUrls, setSmartsheetUrls] = useState<string[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [managerThinking, setManagerThinking] = useState<string | null>(null)
+  const [agentProgress, setAgentProgress] = useState<{[key: string]: {substep: string, progress: number}}>({})
+  const [workflowState, setWorkflowState] = useState<any>(null)
+  const [brainAllocations, setBrainAllocations] = useState<{[key: string]: string}>({})
+  const [pendingDecision, setPendingDecision] = useState<any>(null)
+  const [errorRecovery, setErrorRecovery] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -146,6 +204,27 @@ export function EnhancedChatInterface({
         } else if (wsMessage.data.status === 'completed') {
           setIsTyping(false)
         }
+      } else if (wsMessage.type === 'manager_thinking') {
+        // Enhanced: Manager decision broadcasting
+        handleManagerThinking(wsMessage.data)
+      } else if (wsMessage.type === 'agent_substep') {
+        // Enhanced: Granular agent progress
+        handleAgentSubstep(wsMessage.data)
+      } else if (wsMessage.type === 'workflow_state_change') {
+        // Enhanced: Workflow visualization
+        handleWorkflowStateChange(wsMessage.data)
+      } else if (wsMessage.type === 'brain_allocation') {
+        // Enhanced: Brain allocation decisions
+        handleBrainAllocation(wsMessage.data)
+      } else if (wsMessage.type === 'user_decision_needed') {
+        // Enhanced: Interactive user decisions
+        handleUserDecisionNeeded(wsMessage.data)
+      } else if (wsMessage.type === 'error_recovery') {
+        // Enhanced: Error recovery streaming
+        handleErrorRecovery(wsMessage.data)
+      } else if (wsMessage.type === 'agent_processing_start' || wsMessage.type === 'agent_processing_complete') {
+        // Enhanced: Agent processing events
+        handleAgentProcessingEvent(wsMessage.data)
       }
     }
 
@@ -256,6 +335,108 @@ export function EnhancedChatInterface({
       localStorage.setItem("pip-ai-messages", JSON.stringify(messages))
     }
   }, [messages])
+
+  // Enhanced streaming message handlers
+  const handleManagerThinking = useCallback((data: any) => {
+    console.log("🧠 Manager thinking:", data)
+    setManagerThinking(data.analysis || data.thinking_type || "Manager is analyzing...")
+    toast.info(`Manager: ${data.thinking_type || 'Thinking'}`, {
+      description: data.analysis?.substring(0, 100) + "...",
+      duration: 3000,
+    })
+    
+    // Clear thinking after a delay
+    setTimeout(() => setManagerThinking(null), 5000)
+  }, [])
+
+  const handleAgentSubstep = useCallback((data: any) => {
+    console.log("📊 Agent substep:", data)
+    const agentName = data.agent_name
+    const substep = data.substep
+    const progress = data.progress_percentage || 0
+    
+    setAgentProgress(prev => ({
+      ...prev,
+      [agentName]: { substep, progress }
+    }))
+    
+    toast.info(`${agentName}: ${substep}`, {
+      description: `${progress}% complete`,
+      duration: 2000,
+    })
+  }, [])
+
+  const handleWorkflowStateChange = useCallback((data: any) => {
+    console.log("🎯 Workflow state change:", data)
+    setWorkflowState(data)
+    
+    if (data.change_type === 'phase_transition') {
+      toast.success(`Workflow: ${data.current_stage}`, {
+        description: `${data.workflow_visualization?.completion_percentage || 0}% complete`,
+        duration: 3000,
+      })
+    }
+  }, [])
+
+  const handleBrainAllocation = useCallback((data: any) => {
+    console.log("🤖 Brain allocation:", data)
+    const agentName = data.agent_name
+    const model = data.model_selected
+    
+    setBrainAllocations(prev => ({
+      ...prev,
+      [agentName]: model
+    }))
+    
+    toast.info(`Brain Allocation: ${agentName}`, {
+      description: `Using ${model} - ${data.reasoning?.substring(0, 80)}...`,
+      duration: 4000,
+    })
+  }, [])
+
+  const handleUserDecisionNeeded = useCallback((data: any) => {
+    console.log("🤔 User decision needed:", data)
+    setPendingDecision(data)
+    
+    toast.warning("Decision Required", {
+      description: data.prompt?.substring(0, 100) + "...",
+      duration: 10000,
+    })
+  }, [])
+
+  const handleErrorRecovery = useCallback((data: any) => {
+    console.log("🚨 Error recovery:", data)
+    setErrorRecovery(data.error_message)
+    
+    const severity = data.severity || 'medium'
+    const toastFn = severity === 'high' ? toast.error : severity === 'low' ? toast.info : toast.warning
+    
+    toastFn("Error Recovery", {
+      description: `${data.error_message} - ${data.recovery_strategy}`,
+      duration: 6000,
+    })
+    
+    // Clear error recovery after delay
+    setTimeout(() => setErrorRecovery(null), 10000)
+  }, [])
+
+  const handleAgentProcessingEvent = useCallback((data: any) => {
+    console.log("⚡ Agent processing event:", data)
+    const agentName = data.agent_name
+    const status = data.status
+    
+    if (status === 'start') {
+      toast.info(`${agentName} Starting`, {
+        description: `Step ${data.step_number}/${data.total_steps}`,
+        duration: 2000,
+      })
+    } else if (status === 'complete') {
+      toast.success(`${agentName} Complete`, {
+        description: data.result_summary || "Processing completed",
+        duration: 3000,
+      })
+    }
+  }, [])
 
   const toggleMetadata = (messageId: string) => {
     setExpandedMetadata((prev) =>
@@ -373,32 +554,78 @@ export function EnhancedChatInterface({
       if (response.success && response.data) {
         console.log("✅ Direct API response received, checking if WebSocket will handle it...")
         
+        // Handle the new response format which may contain both user and agent messages
+        const handleDirectResponse = (responseData: any) => {
+          const messagesToAdd: Message[] = []
+          
+          // Handle the new format with user_message and agent_response
+          if (responseData.user_message) {
+            const userMsg: Message = {
+              id: responseData.user_message.id,
+              role: responseData.user_message.role as "user" | "assistant",
+              content: responseData.user_message.content,
+              agent: responseData.user_message.agent_type || "User",
+              timestamp: new Date(responseData.user_message.timestamp),
+              metadata: responseData.user_message.metadata
+            }
+            messagesToAdd.push(userMsg)
+          }
+          
+          if (responseData.agent_response) {
+            const agentMsg: Message = {
+              id: responseData.agent_response.id,
+              role: responseData.agent_response.role as "user" | "assistant",
+              content: responseData.agent_response.content,
+              agent: responseData.agent_response.agent_type || "Manager Agent",
+              timestamp: new Date(responseData.agent_response.timestamp),
+              tokenCost: responseData.agent_response.metadata?.token_cost,
+              processingTime: responseData.agent_response.metadata?.processing_time,
+              metadata: responseData.agent_response.metadata ? {
+                model: responseData.agent_response.metadata.model || "gpt-4-turbo",
+                confidence: responseData.agent_response.metadata.confidence || 0.85,
+                sources: responseData.agent_response.metadata.sources || ["internal_knowledge"]
+              } : undefined
+            }
+            messagesToAdd.push(agentMsg)
+          }
+          
+          // If no new format, handle legacy single message format
+          if (!responseData.user_message && !responseData.agent_response) {
+            const legacyMsg: Message = {
+              id: responseData.id,
+              role: responseData.role as "user" | "assistant",
+              content: responseData.content,
+              agent: responseData.agent_type || "Manager Agent",
+              timestamp: new Date(responseData.timestamp),
+              tokenCost: responseData.metadata?.token_cost,
+              processingTime: responseData.metadata?.processing_time,
+              metadata: responseData.metadata ? {
+                model: responseData.metadata.model || "gpt-4-turbo",
+                confidence: responseData.metadata.confidence || 0.85,
+                sources: responseData.metadata.sources || ["internal_knowledge"]
+              } : undefined
+            }
+            messagesToAdd.push(legacyMsg)
+          }
+          
+          return messagesToAdd
+        }
+        
         // Wait a short time to see if WebSocket message arrives
         setTimeout(() => {
           setMessages(prev => {
-            // Check if WebSocket already added this message
-            const exists = prev.some(msg => msg.id === response.data.id)
-            if (!exists) {
-              console.log("🔄 WebSocket didn't handle response, adding via direct API")
-              const agentMessage: Message = {
-                id: response.data.id,
-                role: response.data.role as "user" | "assistant",
-                content: response.data.content,
-                agent: response.data.agent_type || "Manager Agent",
-                timestamp: new Date(response.data.timestamp),
-                tokenCost: response.data.metadata?.token_cost,
-                processingTime: response.data.metadata?.processing_time,
-                metadata: response.data.metadata ? {
-                  model: response.data.metadata.model || "gpt-4-turbo",
-                  confidence: response.data.metadata.confidence || 0.85,
-                  sources: response.data.metadata.sources || ["internal_knowledge"]
-                } : undefined
-              }
-              const newMessages = [...prev, agentMessage]
+            const messagesToAdd = handleDirectResponse(response.data)
+            const newMessagesFiltered = messagesToAdd.filter(newMsg => 
+              !prev.some(existingMsg => existingMsg.id === newMsg.id)
+            )
+            
+            if (newMessagesFiltered.length > 0) {
+              console.log(`🔄 WebSocket didn't handle ${newMessagesFiltered.length} messages, adding via direct API`)
+              const newMessages = [...prev, ...newMessagesFiltered]
               console.log("📝 Added direct API response, total messages:", newMessages.length)
               return newMessages
             } else {
-              console.log("✅ WebSocket already handled response, skipping direct API add")
+              console.log("✅ WebSocket already handled all messages, skipping direct API add")
               return prev
             }
           })
@@ -472,8 +699,79 @@ export function EnhancedChatInterface({
     toast.success("Chat cleared!")
   }
 
+  // Handle file selection submission
+  const handleFileSelection = async (selection: {
+    selectedFiles: string[]
+    additionalText: string
+    action: 'analyze_selected' | 'analyze_all' | 'cancel'
+  }) => {
+    if (!currentSessionId) {
+      toast.error("No active chat session")
+      return
+    }
+
+    try {
+      setIsTyping(true)
+      console.log("🔄 Processing file selection:", selection)
+      
+      const result = await chatApi.submitFileSelection(currentSessionId, selection)
+      console.log("📦 File selection result:", result)
+      
+      if (result.success && result.data) {
+        // Convert the response data to Message format
+        const messagesToAdd: Message[] = []
+        
+        if (result.data.selection_message) {
+          const selectionMsg: Message = {
+            id: result.data.selection_message.id,
+            role: result.data.selection_message.role as "user" | "assistant",
+            content: result.data.selection_message.content,
+            agent: result.data.selection_message.agent_type || "User",
+            timestamp: new Date(result.data.selection_message.timestamp),
+            metadata: result.data.selection_message.metadata
+          }
+          messagesToAdd.push(selectionMsg)
+        }
+        
+        if (result.data.agent_response) {
+          const agentMsg: Message = {
+            id: result.data.agent_response.id,
+            role: result.data.agent_response.role as "user" | "assistant",
+            content: result.data.agent_response.content,
+            agent: result.data.agent_response.agent_type || "Smartsheet Agent",
+            timestamp: new Date(result.data.agent_response.timestamp),
+            tokenCost: result.data.agent_response.metadata?.token_cost,
+            processingTime: result.data.agent_response.metadata?.processing_time,
+            metadata: result.data.agent_response.metadata ? {
+              model: result.data.agent_response.metadata.model || "gpt-4-turbo",
+              confidence: result.data.agent_response.metadata.confidence || 0.85,
+              sources: result.data.agent_response.metadata.sources || ["smartsheet"]
+            } : undefined
+          }
+          messagesToAdd.push(agentMsg)
+        }
+        
+        // Add messages to state
+        if (messagesToAdd.length > 0) {
+          setMessages(prev => [...prev, ...messagesToAdd])
+          console.log("✅ Added file selection messages to chat:", messagesToAdd.length)
+        }
+        
+        toast.success('File selection processed!')
+      } else {
+        console.error("❌ File selection failed:", result.error)
+        toast.error(`Failed to process file selection: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ File selection failed:', error)
+      toast.error('Failed to process file selection')
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
   return (
-    <div className="bg-background flex flex-col pb-32 relative">
+    <div className="bg-background flex flex-col h-full relative">
       {/* Chat Drag Overlay */}
       <AnimatePresence>
         {isDragOverChat && (
@@ -514,19 +812,37 @@ export function EnhancedChatInterface({
         onDrop={handleChatDrop}
       >
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto space-y-6 p-6 pb-8">
+        <div className="flex-1 overflow-y-auto space-y-6 p-4 pb-32 scrollbar-hide max-w-full">
           {/* Stepwise Presenter - Protocol Agent Workflow Display */}
           <StepwisePresenter 
             sessionId={currentSessionId || undefined}
             className="mb-6"
           />
           
+          {/* Action buttons at top when there are messages */}
+          {messages.length > 0 && (
+            <div className="flex justify-center mb-6">
+              <div className="flex space-x-4">
+                <Button onClick={handleFileAttach} variant="outline" className="border-primary text-primary">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Upload Files
+                </Button>
+                <Button onClick={exportChat} variant="outline" disabled={messages.length === 0}>
+                  Export Chat
+                </Button>
+                <Button onClick={clearChat} variant="outline" disabled={messages.length === 0}>
+                  Clear Chat
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {messages.length === 0 && !isTyping && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-[#E60023] to-[#C4001A] rounded-full flex items-center justify-center mb-6 shadow-lg">
                 <MessageSquare className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-2xl font-semibold text-foreground mb-2">What are you working on?</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Let's Build!</h2>
               <p className="text-muted-foreground mb-6">
                 Start a new conversation, upload files, or paste Smartsheet URLs.
               </p>
@@ -555,6 +871,10 @@ export function EnhancedChatInterface({
           <AnimatePresence>
             {messages.map((message, index) => {
               console.log("🎨 Rendering message:", message.id, message.content.substring(0, 50) + "...")
+              
+              // Check if this is a file selection message
+              const fileSelection = message.role === "assistant" ? parseMessageForInteractivity(message.content) : null
+              
               return (
               <motion.div
                 key={message.id}
@@ -562,23 +882,23 @@ export function EnhancedChatInterface({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ delay: 0 }}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex w-full ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <Card
-                  className={`max-w-2xl p-4 shadow-lg transition-all hover:shadow-xl border-0 ${
+                  className={`max-w-[85%] p-4 shadow-lg transition-all hover:shadow-xl border-0 ${
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground ml-12"
-                      : "bg-card dark:bg-zinc-800 mr-12 border border-border shadow-md"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card dark:bg-zinc-800 border border-border shadow-md"
                   }`}
                 >
                   <div className="flex items-start space-x-3">
                     {message.role === "assistant" && (
                       <motion.div
-                        className="w-8 h-8 bg-gradient-to-br from-[#E60023] to-[#C4001A] rounded-full flex items-center justify-center flex-shrink-0"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getAgentStyle(message.agent)}`}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Bot className="w-4 h-4 text-white" />
+                        {getAgentIcon(message.agent)}
                       </motion.div>
                     )}
                     <div className="flex-1">
@@ -599,11 +919,23 @@ export function EnhancedChatInterface({
                       )}
 
                       {/* Message Content */}
-                      <p
-                        className={`text-sm leading-relaxed ${message.role === "user" ? "text-white" : "text-foreground"}`}
-                      >
-                        {message.content}
-                      </p>
+                      <div className="text-sm leading-relaxed break-words overflow-wrap-anywhere">
+                        <FormattedMessageContent 
+                          content={fileSelection ? cleanMessageContent(message.content) : message.content}
+                          isUser={message.role === "user"}
+                        />
+                      </div>
+
+                      {/* Interactive File Selection */}
+                      {fileSelection && (
+                        <div className="mt-3">
+                          <FileSelectionCard
+                            files={fileSelection.files}
+                            sheetId={fileSelection.sheet_id}
+                            onSubmit={handleFileSelection}
+                          />
+                        </div>
+                      )}
 
                       {/* Attachments */}
                       {message.attachments && message.attachments.length > 0 && (
@@ -623,9 +955,9 @@ export function EnhancedChatInterface({
                                     : "bg-secondary text-secondary-foreground"
                                 }`}
                               >
-                                <Paperclip className="w-3 h-3" />
-                                <span className="truncate max-w-32">{file.name}</span>
-                                <span className="text-xs opacity-70">({formatFileSize(file.size)})</span>
+                                <Paperclip className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate flex-1 min-w-0">{file.name}</span>
+                                <span className="text-xs opacity-70 flex-shrink-0">({formatFileSize(file.size)})</span>
                               </div>
                             ))}
                           </div>

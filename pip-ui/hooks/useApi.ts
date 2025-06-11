@@ -69,7 +69,7 @@ export function useApiRequest<T>(
       execute().catch(err => {
         console.error("🔄 useApiRequest: execute failed in useEffect:", err);
       });
-    }, 500);
+    }, 100); // Reduced from 500ms to 100ms for better performance
 
     return () => {
       console.log("🔄 useApiRequest: cleanup");

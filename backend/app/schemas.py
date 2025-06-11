@@ -88,6 +88,7 @@ class AppState(BaseModel):
     # Final outputs
     estimate: List[EstimateItem] = Field(default_factory=lambda: [])
     result: Optional[Any] = None  # General result field
+    manager_response: Optional[str] = None  # For direct manager responses
     
     # Export functionality
     export: Optional[str] = None # Result from exporter agent - general message

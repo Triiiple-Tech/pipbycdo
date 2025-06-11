@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bot, Zap, FileText, Calculator, Search, CheckCircle, Upload, Database, AlertCircle } from "lucide-react"
+import { Bot, Zap, FileText, Calculator, Search, CheckCircle, Upload, Database, AlertCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { chatApi } from "@/services/chatApi"
 
 interface Agent {
@@ -49,6 +50,8 @@ export function AgentStatus({ className = "", showProgress = true, compact = fal
     currentStep: 0,
     completedAgents: []
   })
+
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     const handleWebSocketMessage = (wsMessage: any) => {
@@ -242,63 +245,108 @@ export function AgentStatus({ className = "", showProgress = true, compact = fal
     )
   }
 
+  const activeAgent = agents.find(agent => agent.status === "processing")
+  const hasActivity = currentWorkflow.isActive || agents.some(agent => agent.status === "processing")
+
   return (
-    <Card className={`bg-secondary/30 dark:bg-zinc-900/50 backdrop-blur-sm border-border ${className}`}>
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-foreground">Agent Pipeline Status</h3>
-          {currentWorkflow.isActive && (
-            <Badge variant="outline" className="text-xs">
-              Step {currentWorkflow.currentStep}/{currentWorkflow.totalSteps}
-            </Badge>
+    <div className={`bg-muted/20 rounded-md border border-border/30 transition-all duration-200 ${className}`}>
+      {/* Collapsed view - minimal dots with enhanced active agent */}
+      <div 
+        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center space-x-2">
+          {/* Agent dots with enhanced active state */}
+          <div className="flex items-center space-x-1">
+            {agents.map((agent) => (
+              <div
+                key={agent.id}
+                className={`rounded-full transition-all duration-300 ${
+                  agent.status === "processing" 
+                    ? "w-3 h-3 shadow-lg shadow-[#E60023]/50" 
+                    : "w-2 h-2"
+                } ${getAgentColor(agent.type, agent.status)}`}
+                title={`${agent.name}: ${agent.status}`}
+              />
+            ))}
+          </div>
+          
+          {/* Active agent name */}
+          {activeAgent && (
+            <span className="text-xs text-foreground font-medium">
+              {activeAgent.name}
+            </span>
           )}
         </div>
         
-        {showProgress && currentWorkflow.isActive && (
-          <div className="mb-4">
-            <Progress value={getWorkflowProgress()} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-1">
-              Workflow Progress: {getWorkflowProgress()}%
-            </p>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {agents.map((agent) => (
-            <div key={agent.id} className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${getAgentColor(agent.type, agent.status)}`} />
-                <span className="text-xs font-medium text-foreground truncate">{agent.name}</span>
-                {getStatusIcon(agent.status)}
-              </div>
-              
-              {agent.status === "processing" && showProgress && (
-                <Progress value={agent.progress} className="h-1" />
-              )}
-              
-              {agent.result && (
-                <p className="text-xs text-muted-foreground truncate" title={agent.result}>
-                  {agent.result}
-                </p>
-              )}
-              
-              {agent.status === "processing" && (
-                <Badge variant="secondary" className="text-xs">
-                  Working...
-                </Badge>
-              )}
-            </div>
-          ))}
+        <div className="flex items-center space-x-2">
+          {/* Current step indicator */}
+          {currentWorkflow.isActive && (
+            <span className="text-xs text-muted-foreground">
+              {currentWorkflow.currentStep}/{currentWorkflow.totalSteps}
+            </span>
+          )}
+          
+          {/* Expand/collapse button - always show */}
+          <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
+            {isExpanded ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
+          </Button>
         </div>
-        
-        {currentWorkflow.completedAgents.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              Completed: {currentWorkflow.completedAgents.join(", ")}
-            </p>
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Expanded view - detailed agent information */}
+      {isExpanded && (
+        <div className="px-3 pb-3 border-t border-border/30">
+          {showProgress && currentWorkflow.isActive && (
+            <div className="mb-3 mt-3">
+              <Progress value={getWorkflowProgress()} className="h-1" />
+              <p className="text-xs text-muted-foreground mt-1">
+                Progress: {getWorkflowProgress()}%
+              </p>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {(hasActivity ? agents.filter(agent => agent.status !== "idle") : agents).map((agent) => (
+              <div key={agent.id} className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${getAgentColor(agent.type, agent.status)}`} />
+                  <span className="text-xs font-medium text-foreground truncate">{agent.name}</span>
+                  {getStatusIcon(agent.status)}
+                </div>
+                
+                {agent.status === "processing" && showProgress && (
+                  <Progress value={agent.progress} className="h-0.5" />
+                )}
+                
+                {agent.result && (
+                  <p className="text-xs text-muted-foreground truncate" title={agent.result}>
+                    {agent.result}
+                  </p>
+                )}
+                
+                {!hasActivity && agent.description && (
+                  <p className="text-xs text-muted-foreground truncate" title={agent.description}>
+                    {agent.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {currentWorkflow.completedAgents.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                Completed: {currentWorkflow.completedAgents.join(", ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

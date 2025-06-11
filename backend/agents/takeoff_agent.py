@@ -24,7 +24,7 @@ class TakeoffAgent(BaseAgent):
         super().__init__("takeoff")
         self.brain_prompt = self.BRAIN_PROMPT
     
-    def process(self, state: AppState) -> AppState:
+    async def process(self, state: AppState) -> AppState:
         """Process scope items to generate takeoff data with quantities and units."""
         self.log_interaction(state, "Starting quantity takeoff", 
                            f"Processing {len(state.scope_items or [])} scope items")
@@ -41,7 +41,7 @@ class TakeoffAgent(BaseAgent):
         
         # Process each scope item
         for scope_item in state.scope_items:
-            takeoff_item = self._process_scope_item(state, scope_item)
+            takeoff_item = await self._process_scope_item(state, scope_item)
             all_takeoff_items.append(takeoff_item)
         
         # Store results
@@ -54,7 +54,7 @@ class TakeoffAgent(BaseAgent):
         
         return state
     
-    def _process_scope_item(self, state: AppState, scope_item: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_scope_item(self, state: AppState, scope_item: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single scope item to generate takeoff data."""
         item_id = scope_item.get("item_id", "UNKNOWN_ITEM")
         description = scope_item.get("description", "N/A")
@@ -81,7 +81,7 @@ class TakeoffAgent(BaseAgent):
         
         try:
             # Try LLM-enhanced takeoff first
-            llm_result = self._llm_enhanced_takeoff(state, scope_item)
+            llm_result = await self._llm_enhanced_takeoff(state, scope_item)
             if llm_result:
                 return llm_result
             
@@ -102,7 +102,7 @@ class TakeoffAgent(BaseAgent):
                 "error_message": str(e)
             }
     
-    def _llm_enhanced_takeoff(self, state: AppState, scope_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _llm_enhanced_takeoff(self, state: AppState, scope_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Use LLM to intelligently analyze scope item and generate takeoff data."""
         if not state.llm_config or not state.llm_config.api_key:
             self.log_interaction(state, "LLM not available for takeoff", 
@@ -148,7 +148,7 @@ Source File: {item_context['source_file']}
 Provide takeoff data in the requested JSON format."""
         
         try:
-            response = self.call_llm(state, user_prompt, system_prompt)
+            response = await self.call_llm(state, user_prompt, system_prompt)
             if not response:
                 return None
             
@@ -282,6 +282,6 @@ Provide takeoff data in the requested JSON format."""
 takeoff_agent = TakeoffAgent()
 
 # Backward compatibility function
-def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
+async def handle(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy handle function for backward compatibility."""
-    return takeoff_agent.handle(state_dict)
+    return await takeoff_agent.handle(state_dict)

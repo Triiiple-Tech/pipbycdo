@@ -1,13 +1,21 @@
 #!/bin/bash
 
-# Load environment variables from .env file
+# Load environment variables using Python's dotenv approach
 echo "Loading environment variables..."
 cd /Users/thekiiid/pipbycdo
-export $(grep -v '^#' .env | xargs)
 
-# Ensure SUPABASE_KEY is set to service role key for backend
-export SUPABASE_KEY="${SUPABASE_SERVICE_ROLE_KEY}"
-
-# Start backend server
+# Start backend server with proper environment loading
 echo "Starting uvicorn server..."
-python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+python -c "
+import sys
+sys.path.append('/Users/thekiiid/pipbycdo')
+from backend.load_env import *
+import subprocess
+subprocess.run([
+    'python', '-m', 'uvicorn', 
+    'backend.app.main:app', 
+    '--reload', 
+    '--host', '0.0.0.0', 
+    '--port', '8000'
+])
+"

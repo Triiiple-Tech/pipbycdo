@@ -127,7 +127,7 @@ export class ChatApiService {
   }
 
   // Message management
-  async sendMessage(sessionId: string, content: string): Promise<ApiResponse<ChatMessage>> {
+  async sendMessage(sessionId: string, content: string): Promise<ApiResponse<ChatMessage[]>> {
     console.log("🌐 chatApi.sendMessage called with:", { sessionId, content })
     
     const response = await apiClient.sendChatMessage(sessionId, content);
@@ -184,6 +184,25 @@ export class ChatApiService {
       body: JSON.stringify({ 
         file_id: fileId, 
         instructions 
+      }),
+    });
+  }
+
+  // File selection submission
+  async submitFileSelection(
+    sessionId: string,
+    selection: {
+      selectedFiles: string[]
+      additionalText: string
+      action: 'analyze_selected' | 'analyze_all' | 'cancel'
+    }
+  ): Promise<ApiResponse<{ selection_message: any; agent_response: any }>> {
+    return apiClient.makeRequest(`/api/chat/sessions/${sessionId}/file-selection`, {
+      method: 'POST',
+      body: JSON.stringify({
+        selected_files: selection.selectedFiles,
+        action: selection.action,
+        additional_text: selection.additionalText
       }),
     });
   }

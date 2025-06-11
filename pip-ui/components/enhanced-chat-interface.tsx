@@ -519,22 +519,6 @@ export function EnhancedChatInterface({
 
     console.log("✅ All checks passed, proceeding to send message...")
 
-    // Handle file uploads first if we have files
-    let uploadedFileIds: string[] = []
-    if (attachedFiles.length > 0) {
-      try {
-        console.log("📤 Uploading files...")
-        const uploadResult = await uploadFiles(attachedFiles)
-        if (uploadResult && uploadResult.length > 0) {
-          uploadedFileIds = uploadResult.map((file: any) => file.id)
-          console.log("✅ Files uploaded successfully:", uploadedFileIds)
-        }
-      } catch (error) {
-        console.error('❌ File upload failed:', error)
-        toast.error('Failed to upload files. Sending message without attachments.')
-      }
-    }
-
     // Store input content before clearing (user message will come via WebSocket)
     const messageContent = input
     setInput("")
@@ -542,9 +526,10 @@ export function EnhancedChatInterface({
     setSmartsheetUrls([])
     setIsTyping(true)
 
-    console.log("🤖 Sending message to backend...")
-    // Send message to backend using direct API
+    console.log("🤖 Sending message to backend with files...")
+    // Send message to backend using direct API - FILES AND MESSAGE TOGETHER
     try {
+      // ✅ FIXED: Send files WITH the message to trigger agent pipeline
       const response = await directSendMessage(currentSessionId, messageContent, attachedFiles)
       
       console.log("📦 Backend response:", response)
@@ -566,7 +551,8 @@ export function EnhancedChatInterface({
               content: responseData.user_message.content,
               agent: responseData.user_message.agent_type || "User",
               timestamp: new Date(responseData.user_message.timestamp),
-              metadata: responseData.user_message.metadata
+              metadata: responseData.user_message.metadata,
+              attachments: attachedFiles.length > 0 ? attachedFiles : undefined
             }
             messagesToAdd.push(userMsg)
           }

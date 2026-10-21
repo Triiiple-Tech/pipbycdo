@@ -1,9 +1,7 @@
 {
-  "agentCanUpdateSnapshot": true,
   "projectName": "PIP AI - Autonomous Agentic Manager Protocol",
   "projectType": "full-stack",
   "architecture": "FastAPI + Next.js 15 + WebSocket + Multi-Agent System",
-  
   "services": {
     "backend": {
       "install": "python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt",
@@ -20,16 +18,44 @@
       "url": "http://localhost:3000"
     }
   },
-  
-  "quickStart": {
-    "install": "./start_dev_environment.sh install",
-    "start": "./start_dev_environment.sh start",
-    "status": "./start_dev_environment.sh status",
-    "test": "./start_dev_environment.sh test",
-    "logs": "./start_dev_environment.sh logs",
-    "stop": "./start_dev_environment.sh stop"
+  "scripts": {
+    "install": "./start-dev-environment.sh start",
+    "start": "./pip up",
+    "status": "./pip status",
+    "test": "./pip status",
+    "logs": "./pip logs",
+    "stop": "./pip stop",
+    "restart": "./pip restart",
+    "dashboard": "./pip dashboard",
+    "frontend": "./pip ui",
+    "backend": "./pip api",
+    "integration": "./pip status"
   },
-  
+  "commands": {
+    "unified_start": "./pip up",
+    "unified_stop": "./pip stop",
+    "unified_status": "./pip status",
+    "unified_restart": "./pip restart",
+    "open_dashboard": "./pip dash",
+    "open_frontend": "./pip ui",
+    "open_backend": "./pip api",
+    "view_logs": "./pip logs",
+    "clean_environment": "./pip clean"
+  },
+  "description": "PIP AI Unified Development Environment Commands",
+  "version": "2.0-graceful",
+  "quickStart": {
+    "install": "./pip up",
+    "start": "./pip up",
+    "status": "./pip status",
+    "test": "./pip status",
+    "logs": "./pip logs",
+    "stop": "./pip stop",
+    "restart": "./pip restart",
+    "dashboard": "./pip dash",
+    "frontend": "./pip ui",
+    "backend": "./pip api"
+  },
   "keyDirectories": {
     "backend": {
       "path": "./backend",
@@ -51,7 +77,6 @@
       ]
     }
   },
-  
   "currentIssues": {
     "critical": [
       {
@@ -63,28 +88,27 @@
         "fix": "Use unified FormData endpoint for files+messages"
       },
       {
-        "name": "Smartsheet Pipeline Break", 
+        "name": "Smartsheet Pipeline Break",
         "description": "File selection doesn't continue to analysis",
         "file": "backend/services/agent_router.py",
-        "lines": "580-632", 
+        "lines": "580-632",
         "priority": "HIGH",
         "fix": "Ensure pipeline continuation after files_ready_for_analysis"
       },
       {
         "name": "Backend Syntax Error",
         "description": "Unclosed parenthesis preventing startup",
-        "file": "backend/services/agent_router.py", 
+        "file": "backend/services/agent_router.py",
         "line": "270",
         "priority": "URGENT",
         "fix": "Close the await self.broadcast_agent_conversation( call"
       }
     ]
   },
-  
   "systemArchitecture": {
     "agents": [
       "ManagerAgent - Orchestrates workflow",
-      "FileReaderAgent - Extracts content from files", 
+      "FileReaderAgent - Extracts content from files",
       "TradeMapperAgent - Categorizes construction trades",
       "ScopeAgent - Identifies scope items",
       "TakeoffAgent - Calculates quantities",
@@ -93,14 +117,15 @@
     ],
     "communication": "WebSocket real-time updates",
     "database": "Supabase",
-    "apis": ["OpenAI GPT-4o/o1/o3", "Smartsheet API"]
+    "apis": [
+      "OpenAI GPT-4o/o1/o3",
+      "Smartsheet API"
+    ]
   },
-  
   "importPatterns": {
     "backend": "from backend.module.submodule import Class (absolute imports)",
     "frontend": "import { Component } from '@/components/ui/component'"
   },
-  
   "codePatterns": {
     "backend": {
       "async": "Always use async/await for I/O operations",
@@ -110,44 +135,59 @@
     },
     "frontend": {
       "state": "useState for local, custom hooks for API",
-      "websocket": "chatApi.onMessage for real-time updates", 
+      "websocket": "chatApi.onMessage for real-time updates",
       "types": "Strict TypeScript with clear interfaces",
       "styling": "Tailwind CSS with shadcn/ui components"
     }
   },
-  
   "debugging": {
     "backend": "tail -f backend/backend.log | grep -i 'agent\\|pipeline\\|processing'",
     "frontend": "Browser DevTools Console + Network tab",
     "websocket": "Check WebSocket messages in DevTools"
   },
-  
   "environment": {
     "python": "3.13",
     "node": "22.15+",
     "venv": ".venv (in project root)",
     "envFile": ".env (in project root)"
   },
-  
   "testingStrategy": {
     "backend": "pytest with async patterns and mocked LLM calls",
     "frontend": "React Testing Library with WebSocket mocking",
-    "integration": "./start_dev_environment.sh test",
-    "validation": "File upload → agent processing → real-time updates"
+    "integration": "./pip status",
+    "validation": "File upload \u2192 agent processing \u2192 real-time updates"
   },
-  
   "successCriteria": [
     "Files uploaded via drag-drop trigger agent processing",
-    "Smartsheet file selection triggers full analysis pipeline", 
+    "Smartsheet file selection triggers full analysis pipeline",
     "Real-time progress updates via WebSocket",
     "Complete end-to-end workflow working",
     "All 7 agents processing in sequence"
   ],
-  
   "devTips": {
     "startup": "Backend must start before frontend for WebSocket connection",
     "errors": "Check backend logs first, then frontend console",
     "websocket": "WebSocket URL is ws://localhost:8000/api/chat/ws",
-    "agents": "Agent pipeline: FileReader → TradeMapper → Scope → Takeoff → Estimator → Exporter"
+    "agents": "Agent pipeline: FileReader \u2192 TradeMapper \u2192 Scope \u2192 Takeoff \u2192 Estimator \u2192 Exporter"
+  },
+  "build": {
+    "context": ".",
+    "dockerfile": "Dockerfile"
+  },
+  "install": "bash ops/cloud-agent/install-aws-tools.sh && ([ -f pip-ui/package.json ] && (cd pip-ui && npm install) || true) && ([ -f requirements.txt ] && (pip3 install --user --break-system-packages -r requirements.txt || pip3 install --user -r requirements.txt || true) || true)",
+  "start": "bash ops/cloud-agent/verify-aws.sh",
+  "env": {
+    "AWS_REGION": "us-east-1",
+    "AWS_DEFAULT_REGION": "us-east-1",
+    "POLYGAMY_BOX_INSTANCE_ID": "i-01c97deadad199159",
+    "FAMP_SNIPER_AWS_INSTANCE_ID": "i-002255402e5ed0044",
+    "BPUMPER_BOX_INSTANCE_ID": "i-001af733ab7600594",
+    "FAMP_RESEARCH_AWS_INSTANCE_ID": "i-07b4eecaa41cb53a8",
+    "FAMP_HL_AWS_INSTANCE_ID": "i-0de47d4dca7713d99",
+    "FAMP_TESTMP_AWS_INSTANCE_ID": "i-041be9b38ad6e05e7",
+    "FAMP_DRIFT_AWS_INSTANCE_ID": "i-0cefa97eec12f66bf",
+    "FAMP_ALPACA_AWS_INSTANCE_ID": "i-007a1960d1581eef0",
+    "PAPERROUTE_BOX_INSTANCE_ID": "i-08074a84c7478855e",
+    "CLOUD_AGENT_BOX": "famp-research"
   }
 }
